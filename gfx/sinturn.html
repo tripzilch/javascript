@@ -1,0 +1,130 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>*{margin:0;padding:0;}
+  body {
+    background: #113;
+  }
+  canvas{
+    margin: 8px auto;
+    display: block;
+  }
+  textarea{
+    margin: 8px auto;
+    width: 984px;
+    padding: 0px 8px;
+    display: block;
+    background: #223344;
+    color: rgba(192,204,204,0.6);
+    font: bold 16px/24px monospace;
+    height: 288px;
+  }
+  </style>
+</head>
+<body>
+  <canvas id="c">
+  </canvas>
+  <textarea id="t"></textarea>
+  <script>
+    var canvas = document.getElementById("c");
+    var text = document.getElementById("t");
+    var ctx = canvas.getContext("2d");
+    var W = canvas.width = 512;
+    var H = canvas.height = 512;
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    function rand(lo, hi) { return lo + ((hi - lo) * Math.random()) }
+    function mix(a,b,p) { return p * (a - b) + b; }
+
+    var sin = Math.sin, cos = Math.cos, random = Math.random, pi = Math.PI, floor = Math.floor;
+    var pow = Math.pow, max = Math.max, min = Math.min, sqrt = Math.sqrt;
+    var tau = pi * 2;
+
+
+
+    var maxd = 1.0;
+    var mx = 0, my = 0;
+    var smx = 0, smy = 0;
+    var f1 = 0, f2 = 0, f3 = 0, f4 = 0;
+    var ss = 0.4 * W / maxd;
+    function draw() {
+      ctx.fillStyle = 'rgba(221,221,204,0.5)';
+      ctx.fillRect(0, 0, W, H);
+      ctx.save();
+      ctx.strokeStyle = '#221b11';
+      ctx.translate(W * .5, H * .5);
+      var s = 0.4 * W / maxd;
+      ss = s;
+      ctx.scale(s, s);
+      smx = mx;
+      smy = my;
+      ctx.translate(-smx, -smy);
+      ctx.lineWidth = 1.0 / s;
+
+//        f1 = mix(f1, ((mouse.x / W) - 0.5) * 4, a);
+//        f2 = mix(f2, ((mouse.y / H) - 0.5) * 4, a);
+      if (keys[16]) {
+        f1 = ((mouse.x / W) - 0.5) * 1;
+        f2 = ((mouse.y / H) - 0.5) * 1;
+      } else {
+        f3 = ((mouse.x / W) - 0.5) * 0.1;
+        f4 = ((mouse.y / H) - 0.5) * 0.1;
+      }
+      var N = 800;
+      var dt = 0.12;
+      var t = -0.5 * N * dt, x = 0, y = 0, a = 0;
+      maxd = 0.1;
+      mx = 0; my = 0;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      for (var i = 0; i < N; i++) {
+        t += dt;
+        a = 1 * sin(t * f1 + 1) + 2 * sin(t * f2 + 2) + 4 * sin(t * f3 + 3) + 8 * sin(t * f4 + 4);
+        x += sin(a) * dt;
+        y += cos(a) * dt;
+        var d = sqrt(x * x + y * y);
+        if (d > maxd) maxd = d;
+        mx += x;
+        my += y;
+        ctx.lineTo(x, y);
+      }
+      mx /= N; my /= N;
+      text.value = ''
+        + '\n maxd=' + maxd
+        + '\n s=' + s
+        + '\n ss=' + ss
+        + '\n f1 =' + f1
+        + '\n f2 =' + f2
+        ;
+      ctx.stroke();
+      ctx.restore();
+      window.requestAnimationFrame(draw);
+    }
+
+    function getMousePos(canvas, evt) {
+      var rect = canvas.getBoundingClientRect();
+      return {
+        x: evt.clientX - rect.left,
+        y: evt.clientY - rect.top
+      };
+    }
+
+    var mouse = {x: 0, y: 0};
+    canvas.addEventListener('mousemove', function(evt) {
+      mouse = getMousePos(canvas, evt);
+    }, false);
+
+    var keys = [];
+    window.addEventListener("keydown", function(e){
+      keys[e.keyCode] = true;
+    })
+    window.addEventListener("keyup", function(e){
+      keys[e.keyCode] = false;
+    })
+    draw();
+
+  </script>
+</body>

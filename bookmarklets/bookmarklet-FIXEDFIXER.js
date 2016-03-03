@@ -1,0 +1,2 @@
+javascript:(function FIXEDFIXER() { var s,e,i,ee=document.getElementsByTagName('*'); for(i=0; e=ee[i]; i++) { s=getComputedStyle(e); if (s && s.position == 'fixed') e.style.position='static'; } })();
+javascript:Array.forEach(document.getElementsByTagName('*'), function FIX(e){ if (getComputedStyle(e).position == 'fixed') e.style.position='static';})

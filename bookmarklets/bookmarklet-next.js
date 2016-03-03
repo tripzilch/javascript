@@ -1,0 +1,1 @@
+javascript: ['[rel=next]','.next', '[class*=next]','[title*=next]'].find(function(v){ var e = document.querySelector('a'+v); if (e) { e.click(); return 1 } else return 0 });
