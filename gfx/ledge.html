@@ -1,0 +1,192 @@
+<!doctype html><html>
+<head>
+  <meta charset="utf-8">
+  <title>LEDGETRACE</title>
+  <style>*{margin:0;padding:0;}
+    body {
+      background: #000;
+    }
+    canvas{
+      display: block;
+      margin: 8px auto;
+      width: 1200px;
+      height: 800px;
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="c"></canvas>
+  <script>
+    let canvas = document.getElementById("c");
+    const W = 3000, H = 2000;
+    canvas.width = W;
+    canvas.height = H;
+    let canvas_rect = canvas.getBoundingClientRect();
+
+    let [mouse_x, mouse_y] = [0, 0];
+    canvas.addEventListener('mousemove', ev => { 
+      [mouse_x, mouse_y] = [ev.clientX - canvas_rect.left, ev.clientY - canvas_rect.top];
+    }, false);
+
+    let keys = [];
+    window.addEventListener("keydown", ev => { keys[ev.keyCode] = true; });
+    window.addEventListener("keyup", ev => { keys[ev.keyCode] = false; });
+
+    const PI = Math.PI, TAU = PI * 2;
+    let sin = Math.sin, cos = Math.cos, tan = Math.tan, random = Math.random, floor = Math.floor;
+    let max = Math.max, min = Math.min, sqrt = Math.sqrt, hypot = Math.hypot, abs = Math.abs;
+    let mix = (a, b, p) => a * (1 - p) + b * p;
+    let clamp = (x, lo, hi) => min(hi, max(lo, x));
+    let rand = (lo, hi) => lo + ((hi - lo) * random());
+    let irand = (lo, hi) => floor(lo + ((hi - lo) * random()));
+    let nrand = () => random() - random();
+    let sample = (a) => a[irand(0, a.length)];
+    let wrap = (a, n) => (a + n) % n;
+    let pmod = (a, b) => (a % b + b) % b;
+    let smoothstep = (x, e0, e1) => {
+      x = clamp((x - e0) / (e1 - e0), 0, 1);
+      return x * x * (3 - 2 * x);
+    }
+    class vec2 {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+      }
+      iop(other, f) {
+        this.x = f(this.x, other.x);
+        this.y = f(this.y, other.y);
+      }
+      iadd(other) {
+        this.x = this.x + other.x;
+        this.y = this.x + other.x;
+      }
+      isub(other) {
+        this.x = this.x - other.x;
+        this.y = this.x - other.x;
+      }
+      imul(other) {
+        this.x = this.x * other.x;
+        this.y = this.x * other.x;
+      }
+      // iop!
+      
+    }
+
+    function clear(ctx, c='#fff') { ctx.fillStyle = c; ctx.fillRect(0, 0, W, H); }
+    function draw_path(ctx, pp) {
+      let L = pp.length;
+      // let qq = pp.map((v,i,a) => a[max(0,i-1)]))
+      let i = 0;
+      let [x, y] = pp[i++];
+      let px, py;
+      ctx.beginPath();
+      for (; i < L; i++) {
+        [px, py] = [x, y];
+        [x, y] = pp[i];
+        let [dx, dy] = [x - px, y - py];
+        if (abs(y - py) < 2.0) {
+          ctx.lineTo(mix(x, px, .5), mix(y, py, .5) / 4 + H/4);
+        } else {
+          ctx.moveTo(x, y / 4 + H/4);
+        }
+      }
+      ctx.stroke();
+    }
+
+    let DISTANCE = 20.0, 
+        LEN = 2000,
+        STEP = 1.0,
+        BEST_OF = 12;
+
+    let ledge = new Array(H).fill(-DISTANCE * 10);
+    ledge = ledge.map(e => rand(0.9, 1.1) * e);
+    console.log(ledge);
+    function fledge(y) {
+      let yi = floor(y);
+      let yf = y - yi;
+      return ledge[pmod(yi, H)] * (1 - yf) + ledge[pmod(yi + 1, H)] * yf;
+    }
+    function dledge(x, y) {
+      let yi = floor(y);
+      let yf = y - yi;
+      let dx1 = x - ledge[pmod(yi - 1, H)], dy1 = y - yi - 1, d1 = hypot(dx1, dy1);
+      let dx2 = x - ledge[pmod(yi    , H)], dy2 = y - yi    , d2 = hypot(dx2, dy2);
+      let dx3 = x - ledge[pmod(yi + 1, H)], dy3 = y - yi + 1, d3 = hypot(dx3, dy3);
+      let [s1, s2, s3] = [[d1, dx1, dy1], [d2, dx2, dy2], [d3, dx3, dy3]];
+      if (s1 < s2 && s1 < s3) return s1;
+      if (s2 < s3) return s2;
+      return s3;
+    }
+    function get_path(y, a=PI / 2) {
+      let x = fledge(y) + DISTANCE;
+      let pp = [];
+      for (var i = 0; i < LEN; i++) {
+        let [ermin, amin, xmin, ymin] = [99999, 0, 0, 0];
+        let na = a;
+        for (var k = 0; k < BEST_OF; k++) {
+          // step random angle
+          na = a + 0.15 * nrand() * PI / 2;
+          //na = max(min(na, PI), 0)
+          let nx = x + STEP / tan(na);
+          let ny = y + STEP;
+          let nxa = x + 5 * STEP / tan(na);
+          let nya = y + 5 * STEP;
+          let [d, dx, dy] = dledge(nxa, nya); // lookahead distance to ledge
+          let er = (d - DISTANCE) ** 2;
+          if (er < ermin) [ermin, amin, xmin, ymin] = [er, na, nx, ny];
+        }
+        [x, y, a] = [xmin, ymin, amin];
+        pp.push([x, y]);
+      }      
+      return pp;
+    }
+
+    var frame_count = 0;
+    function draw() {
+      frame_count++;
+
+      let pp = get_path(rand(0, H));
+
+      // adjust ledge
+      pp.forEach(([x, y]) => { // todo properly loop this for if STEP > 1 and just to be sure
+        let yi = pmod(floor(y), H);
+        ledge[yi] = max(ledge[yi], x);
+      });
+      // smoothen ledge
+      var min_ledge = W * 4;
+      for (var k = 0; k < 12; k++) {
+        let ledge1 = new Array(H);
+        for (var i = 0; i < H; i++) {
+          let [a, b, c] = [ledge[pmod(i - 1, H)], ledge[i], ledge[pmod(i + 1, H)]];
+          let d = max(a, b, c);
+          ledge1[i] = (a + b * 2 + c) / 4;
+          min_ledge = min(ledge1[i], min_ledge);
+        }
+        ledge = ledge1;
+      }
+
+      //let arcut = (ar, p) => ar.slice(floor(ar.length * p), floor(ar.length * (1-p)));
+
+      let g = smoothstep(min_ledge, W * 0.1, W * 0.9);
+      let c = random() < g ? 1 : 0;
+      aa = '1.0'; // irand(1, 30) / 100;
+      ctx.strokeStyle = [
+        'rgba( 56, 16,144, ' + aa + ')', 
+        'rgba(255,160, 24, ' + aa + ')'][c];
+      ctx.lineWidth = 4; 
+      draw_path(ctx, pp);
+
+      if (min_ledge <= W + DISTANCE) window.requestAnimationFrame(draw);
+    }
+
+    let ctx = canvas.getContext("2d");
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+    clear(ctx, '#000');
+    draw();
+
+  </script>
+</body>
+
+</html>

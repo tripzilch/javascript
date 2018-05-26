@@ -7,19 +7,18 @@
     background: #113;
   }
   canvas{
-    margin: 0 auto;
+    margin: 8px auto;
     display: block;
-    float: left;
   }
   textarea{
     margin: 8px auto;
-    width: 320px;
-    height: 640px;
+    width: 984px;
     padding: 0px 8px;
     display: block;
     background: #223344;
     color: rgba(192,204,204,0.6);
-    font: bold 12px/18px monospace;
+    font: bold 16px/24px monospace;
+    height: 288px;
   }
   </style>
 </head>
@@ -31,17 +30,19 @@
     var canvas = document.getElementById("c");
     var text = document.getElementById("t");
     var ctx = canvas.getContext("2d");
-    var W = canvas.width = 800;
-    var H = canvas.height = 800;
+    var W = canvas.width = 512;
+    var H = canvas.height = 512;
 
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
-    var TAU = PI * 2, PI = Math.PI;
-    var sin = Math.sin, cos = Math.cos, random = Math.random, floor = Math.floor;
-    var pow = Math.pow, max = Math.max, min = Math.min, sqrt = Math.sqrt, hypot = Math.hypot;
-    var rand = (lo, hi) => lo + ((hi - lo) * Math.random());
-    var mix = (a, b, p) => p * (a - b) + b;
+    function rand(lo, hi) { return lo + ((hi - lo) * Math.random()) }
+    function mix(a,b,p) { return p * (a - b) + b; }
+
+    var sin = Math.sin, cos = Math.cos, random = Math.random, PI = Math.PI, floor = Math.floor;
+    var pow = Math.pow, max = Math.max, min = Math.min, sqrt = Math.sqrt;
+    var TAU = PI * 2;
+
 
     function sinsin(t, pp) {
       if (pp[2]) {
@@ -49,43 +50,67 @@
       } else {
         return sin(pp[0] * t + pp[1]);
       }
+
     }
+
+/*
+    function sinsin(t, pp) {
+      if (pp[]) {
+        return pp[0] * sin(pp[1] * t + pp[2]);
+      } else {
+        return pp[0] * sin(pp[1] * t + pp[2]);
+
+        return sin(pp[0] * t + pp[1]);
+         + pp[2] * sinsin(t, pp.slice(3)));
+      }
+
+    }
+
+    ss = function(t, pp) { return p0 + p1 * sin(p2 * t + p3); }
+
+    012 345
+    p[2] * sin(p[1] * t + p[0] + sinsin(t, p[3:]))
+
+    012
+    p[2] * sin(p[1] * t + p[0])
+
+    01
+    p[2] * sin(p[1] * t + p[0])
+
+    0
+    p[2] * sin(p[1] * t + p[0])
+
+
+                           p3 + p4 * sin(p5 * t + p6)
+    p0 + p1 * sin(p2 * t + p3)
+    p0 + p1 * sin(p2 * t + p3)
+*/
 
     var t0 = Date.now();
     function sincurve(f1, f2, f3, f4, N, dt) {
       var now = Date.now() - t0;
-      var phi = 0.001 * now / 1000;
+      var phi = 0.01 * now / 1000;
       var t = -0.5 * N * dt, x = 0, y = 0, a = 0;
       var pp = [];
       var maxd = 0.1;
-      var x_sum = 0, y_sum = 0;
-      var x2_sum = 0, y2_sum = 0;
+      var ax = 0, ay = 0;
       var aa = 0;
       for (var i = 0; i < N; i++) {
         t = (i - 0.5 * N) * dt;
-        da = sin(t * f1 + phi * 4.236) + 2 * sin(t * f2 + phi * 2.618) + 4 * sin(t * f3 + phi * 1.618);
-        da *= .5;
-        a += da * dt;
+        da = 1 * sin(t * f1 + phi * 4.236) + 2 * sin(t * f2 + phi * 2.618) + 4 * sin(t * f3 + phi * 1.618) + 8 * sin(t * f4 + phi * 1.000);
+        a += da * dt * 0.05;
         x += sin(a) * dt;
         y += cos(a) * dt;
-        var d = hypot(x, y);
+        var d = sqrt(x * x + y * y);
         if (d > maxd) maxd = d;
-        x_sum += x;
-        y_sum += y;
-        x2_sum += x * x;
-        y2_sum += y * y;
+        ax += x;
+        ay += y;
         pp.push([x,y]);
       }
-      var x_E = x_sum / N, y_E = y_sum / N;
-      var x_sig = sqrt((x2_sum / N) - x_E * x_E), y_sig = sqrt((y2_sum / N) - y_E * y_E);
-      return {"x_E":x_E,
-        "x_sig": x_sig,        
-        "y_E":y_E,
-        "y_sig": y_sig,          
-        "maxd": maxd, 
-        "pp":pp,
-      };
+      return {"cx":ax/N, "cy":ay/N, "maxd": maxd, "pp":pp, "ma": Math.atan2(y+ay/N,x+ax/N)};
     }
+
+    function pmod(a, b) { return (a%b+b)%b; };
 
     var f1 = 0.2, f2 = 0, f3 = 0, f4 = 0.04;
     var rot = 0;
@@ -104,19 +129,24 @@
         f4 = ((mouse.y / H) - 0.5) * 0.1;
       }
 
-      curve = sincurve(f1, f2, f3, f4, 1600, 0.35);
+      curve = sincurve(f1, f2, f3, f4, 600, 0.35);
 
-      var s = 0.2 * W / hypot(curve.x_sig, curve.y_sig);
+      var s = 0.4 * W / curve.maxd;
       ctx.scale(s, s);
-      ctx.rotate(-Math.atan2(curve.x_sig, curve.y_sig));
-      ctx.translate(-curve.x_E, -curve.y_E);
-      ctx.lineWidth = 1.5 / s;
+      rot = pmod(rot + min(pmod(curve.ma - rot, TAU), pmod(rot - curve.ma + TAU/2, TAU)) * .1, TAU);
+      ctx.rotate(-rot);
+      ctx.translate(-curve.cx, -curve.cy);
+      ctx.lineWidth = 1.0 / s;
 
       ctx.beginPath();
-      //curve.pp.forEach(function(p) { ctx.lineTo(p[0], p[1]); });
-      curve.pp.forEach(p => { ctx.lineTo(...p); });
-      text.value = Object.entries(curve).map(([k,v]) => k + '=' + (typeof(v)=='number'?v.toPrecision(5):'..')).join('\n');
-      // `maxd=${curve.maxd}\ns=${s}\nx_E=${curve.x_E}\ny_E=${curve.y_E}\nx_sig=${curve.x_sig}\ny_sig=${curve.y_sig}`;
+      //ctx.moveTo(curve.pp[0][0], curve.pp[0][1]);
+      curve.pp.forEach(function(p) { ctx.lineTo(p[0], p[1]); });
+      text.value = ''
+        + '\n maxd=' + curve.maxd
+        + '\n s=' + s
+        + '\n cx=' + curve.cx
+        + '\n cy =' + curve.cy
+        ;
       ctx.stroke();
       ctx.restore();
       window.requestAnimationFrame(draw);

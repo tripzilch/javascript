@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+* { margin: 0; padding: 0; }
+body {
+    background: #000;
+}
+canvas {
+    margin: 8px auto;
+    display: block;
+    border: 1px solid #444;
+    padding: 3px;
+}
+textarea {
+    margin: 0px auto;
+    width: 968px;
+    padding: 16px;
+    display: block;
+    border: 16px solid #000;
+    background: rgb(40,50,60);
+    color: rgba(192,204,204,0.6);
+    font: bold 16px/24px monospace;
+    opacity: 0.5;
+}
+</style>
+<title>GFX</title>
+</head>
+
+<body>
+    <canvas id="a"></canvas>
+    <textarea id='dbg'></textarea>
+
+    <script>
+        function run(canvas, img) {
+            var dbg = document.getElementById('dbg');
+            var t0 = Date.now();
+
+            // init canvas
+            /*var*/ ctx = canvas.getContext('2d');
+            var width = canvas.width = img.width;
+            var height = canvas.height = img.height;
+
+            function tri(x1,y1,x2,y2,x3,y3,u1,v1,u2,v2,u3,v3) {
+                // build tri path
+                ctx.beginPath();
+                ctx.moveTo(x1,y1);
+                ctx.lineTo(x2,y2);
+                ctx.lineTo(x3,y3);
+                ctx.closePath();
+                // texture transform
+                var d = ((u1-u2)*(v1-v3)-(u1-u3)*(v1-v2));
+                var e = ((v1-v2)*(u1-u3)-(v1-v3)*(u1-u2));
+                var a1 = ((x1-x2)*(v1-v3)-(x1-x3)*(v1-v2))/d;
+                var a2 = ((x1-x2)*(u1-u3)-(x1-x3)*(u1-u2))/e;
+                var a3 = x1-a1*u1-a2*v1;
+                var a4 = ((y1-y2)*(v1-v3)-(y1-y3)*(v1-v2))/d;
+                var a5 = ((y1-y2)*(u1-u3)-(y1-y3)*(u1-u2))/e;
+                var a6 = y1-a4*u1-a5*v1;
+                ctx.save();
+                ctx.setTransform(a1, a4, a2, a5, a3, a6);
+                // texture fill
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // Math shortcuts
+            var sin = Math.sin, cos = Math.cos, random = Math.random,
+                pi = Math.PI, floor = Math.floor, pi2 = pi * 2;
+
+            var pat = ctx.createPattern(img, 'no-repeat')
+            ctx.fillStyle = pat;
+            ctx.strokeStyle = pat;//'rgba(0,0,64,0.5)';
+
+            verts=[], tris=[], vid={};
+            function vi(j) { return vid[j]==undefined ? vid[j]=verts.push(j)-1 : vid[j]; }
+            for (var i = 0; i < width; i+=25) {
+                for (var j = 0; j < height; j+=25) {
+                    tris.push([vi([i,j]), vi([i+25,j]), vi([i,j+25])]);
+                    tris.push([vi([i+25,j]), vi([i,j+25]), vi([i+25,j+25])]);
+                }
+            }
+
+
+            setInterval(function () {
+                var t = (Date.now() - t0) / 1000;
+                // clear
+                ctx.save();
+                ctx.globalAlpha = 0.3
+                ctx.drawImage(img,0,0);
+//                ctx.fillStyle = 'rgba(0,0,0,0.1)';
+//                ctx.fillRect(0, 0, width, height);
+                ctx.restore();
+
+                var pat = ctx.createPattern(ctx.canvas, 'no-repeat')
+                ctx.fillStyle = pat;
+                ctx.strokeStyle = pat;//'rgba(0,0,64,0.5)';
+                function fx(i,j) { return i+6*sin(.53*t+j*0.02+4*sin(.71*t+i*0.04)); }
+                function fy(i,j) { return j+6*sin(.54*t+i*0.017+3.5*sin(.72*t+j*0.037)); }
+                /*tris.foreach(function (v) {
+                    var p0=verts[v[0]],p1=verts[v[1]],p2=verts[v[2]];
+
+                })*/
+                for (var i = 0; i < width; i+=25) {
+                    for (var j = 0; j < height; j+=25) {
+                        tri(i,j, i+25,j, i,j+25, fx(i,j),fy(i,j), fx(i+25,j),fy(i+25,j), fx(i,j+25),fy(i,j+25));
+                        tri(i+25,j, i,j+25, i+25,j+25, fx(i+25,j),fy(i+25,j), fx(i,j+25),fy(i,j+25), fx(i+25,j+25),fy(i+25,j+25));
+                    }
+                }
+
+            }, 1000/15);
+
+        }
+
+        var canvas = document.getElementById('a');
+        var img = document.createElement('img');
+        img.onload = run.bind(this, canvas, img)
+        img.src = 'test-img-2.png';
+    </script>
+</body>
+
+</html>

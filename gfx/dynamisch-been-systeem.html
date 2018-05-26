@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>MAKE BLEEPY</title>
+  <style>
+    * { margin: 0; padding: 0; }
+    body {
+      display: flex;
+      flex-flow: column;
+      justify-content: center;
+      align-items: center;
+      background: #102;
+      font: 16px/24px sans-serif;
+      padding: 0px 8px;
+      height: 100vh;
+    }
+    #main {
+      display: flex;
+      flex-flow: column;
+      width: 976px;
+      height: 640px;
+      margin: 8px 0 32px 0;
+      background: #102;
+      border-radius: 4px;
+    }
+
+    nav, #display, h1 {
+      display: flex;
+      flex-flow: row wrap;
+      background: #567;
+      border-radius: 4px;
+      padding: 4px;
+      margin: 4px;
+    }
+    .spacer {
+      flex: auto;
+    }
+    h1 {
+      flex-flow: row-reverse;
+      padding-right: 72px;
+      color: #567;
+      background: #102;
+      font: bold 28px/32px sans-serif;
+      letter-spacing: 4px;
+      text-shadow: 0px -2px 0 #102
+      ,            0px -4px 0 #567
+      ,            0px -6px 0 #102
+      ,            0px -8px 0 #567
+      ,            0px  2px 0 #102
+      ,            0px  4px 0 #567
+      ,            0px  6px 0 #102
+      ,            0px  8px 0 #567;
+    }
+    h1 em { color: #689; font-style: normal;}
+
+    nav a {
+      display: flex;
+      box-sizing: border-box;
+      background: #fe8;
+      color: #567;
+      width: 48px;
+      height: 48px;
+      border-radius: 4px;
+      margin: 8px;
+    }
+    nav a:hover {
+      color: #456;
+      padding-top: 4px;
+      border-bottom: 4px solid #dc6;
+    }
+    nav a:active {
+      color: #689;
+      padding-top: 3px;
+      border-bottom: 2px solid #ba4;
+      border-top: 1px solid #567;
+    }
+    nav a svg {
+      width: 24px;
+      height: 24px;
+      margin: auto;
+    }
+
+  </style>
+</head>
+<body>
+  <div id="main">
+    <h1>Dynamisch Been-Systeem</h1>
+    <nav>
+      <a id="previous"><svg viewBox="0 0 32 32" fill="currentcolor"><path d="M4 4 H8 V14 L28 4 V28 L8 18 V28 H4 z"></path></svg></a>
+      <a id="play"><svg viewBox="0 0 32 32" fill="currentcolor"><path d="M4 4 L28 16 L4 28 z"></path></svg></a>
+      <a id="pause"><svg viewBox="0 0 32 32" fill="currentcolor"><path d="M4 4 H12 V28 H4 z M20 4 H28 V28 H20 z"></path></svg></a>
+      <a id="stop"><svg viewBox="0 0 32 32" fill="currentcolor"><path d="M4 4 H28 V28 H4 z"></path></svg></a>
+      <div class="spacer"></div>
+      <a id="config"><svg viewBox="0 0 32 32" fill="currentcolor"><path d="M14 0 H18 L19 6 L20.707 6.707 L26 3.293 L28.707 6 L25.293 11.293 L26 13 L32 14 V18 L26 19 L25.293 20.707 L28.707 26 L26 28.707 L20.707 25.293 L19 26 L18 32 L14 32 L13 26 L11.293 25.293 L6 28.707 L3.293 26 L6.707 20.707 L6 19 L0 18 L0 14 L6 13 L6.707 11.293 L3.293 6 L6 3.293 L11.293 6.707 L13 6 L14 0 z M16 10 A6 6 0 0 0 16 22 A6 6 0 0 0 16 10"></path></svg></a>
+    </nav>
+    <canvas id="c" class="spacer"></canvas>
+    <textarea id="t" class="spacer"></textarea>
+  </div>
+
+  <script>
+    var canvas = document.getElementById("c");
+    var text = document.getElementById("t");
+    var ctx = canvas.getContext('2d', { alpha: false });
+    var W = canvas.width = canvas.scrollWidth;
+    var H = canvas.height = canvas.scrollHeight;
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    var TAU = PI * 2, PI = Math.PI;
+    var sin = Math.sin, cos = Math.cos, random = Math.random, floor = Math.floor;
+    var pow = Math.pow, max = Math.max, min = Math.min, sqrt = Math.sqrt, hypot = Math.hypot;
+    function mix(a, b, p) { return p * (a - b) + b; }
+    function rand(lo, hi) { return lo + ((hi - lo) * random()); }
+    function irand(lo, hi) { return floor(lo + ((hi - lo) * random())); }
+    function nrand() { return random() - random(); }
+    function sample(a) { return a[irand(0, a.length)]; }
+
+    class Agent {
+      // units in metres
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.edges = [];
+        this.size = 1.0;
+        this.radius = this.size / 2
+        this.preferred_distance = 2.0;
+      }
+      observe() {
+        this.observed_edges = this.edges.map(e => ({x: e.x, y:e.y}));
+      }
+      update() {
+        //
+      }
+    }
+
+    var t0 = Date.now();
+    class Experiment {
+      constructor(N=9) {
+        // init nodes to random positions
+        this.agents = [];
+        for (let i = 0; i < N; i++)
+          this.agents.push(new Agent(rand(-5, 5), rand(-5, 5)));
+
+        // give each Agent 2 edges
+        this.agents.forEach((n, i) => {
+          e0 = (irand(1, N) + i) % N;
+          e1 = (irand(1, N) + i) % N;
+          n.edges = [this.agents[e0], this.agents[e1]];
+        });
+      }
+      // just make functions, not the prototype trap
+
+    }
+
+    let x = new Experiment();
+    function draw() {
+      var now = Date.now() - t0;
+      ctx.fillStyle = 'rgb(221,221,204)';
+      ctx.fillRect(0, 0, W, H);
+      ctx.save();
+      ctx.translate(W * .5, H * .5);
+
+      nodes.forEach(n => n.observe());
+
+      var s = W * .25;
+      ctx.scale(s, s);
+      ctx.translate(0, 0);
+      ctx.lineWidth = 1.5 / s;
+
+      ctx.beginPath();
+      nodes.forEach(n => n.draw_edges());
+      ctx.stroke();
+
+      ctx.beginPath();
+      nodes.forEach(n => n.draw());
+      ctx.fill();
+
+      ctx.restore();
+
+      text.value =
+      Object.entries(curve).map(([k,v]) => k + '=' + (typeof(v)=='number'?v.toPrecision(5):'..')).join('\n');
+      `
+d_max=${curve.d_max}
+mean=${curve.x_E}\ny_E=${curve.y_E}\nx_sig=${curve.x_sig}\ny_sig=${curve.y_sig}`;
+      window.requestAnimationFrame(draw);
+    }
+
+    function getMousePos(canvas, evt) {
+      var rect = canvas.getBoundingClientRect();
+      return {
+        x: evt.clientX - rect.left,
+        y: evt.clientY - rect.top
+      };
+    }
+
+    var mouse = {x: 0, y: 0};
+    canvas.addEventListener('mousemove', function(evt) {
+      mouse = getMousePos(canvas, evt);
+    }, false);
+
+    var keys = [];
+    window.addEventListener("keydown", function(e){
+      keys[e.keyCode] = true;
+    })
+    window.addEventListener("keyup", function(e){
+      keys[e.keyCode] = false;
+    })
+    draw();
+
+  </script>
+</body>

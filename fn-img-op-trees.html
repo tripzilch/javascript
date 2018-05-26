@@ -1,0 +1,113 @@
+<!doctype html><html>
+
+<head>
+  <meta charset="utf-8">
+  <style>*{margin:0;padding:0;}
+    body {
+      background: #113;
+    }
+    canvas{
+      display: block;
+      margin: 8px auto;
+    }
+    textarea{
+      display: block;
+      width: 900px; height: 192px;
+      margin: 8px auto; padding: 0px 8px;
+      background: #234;
+      font: bold 16px/24px monospace;
+      color: rgba(255,255,255,0.5);
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="c"></canvas>
+  <textarea id="t"></textarea>
+  <script>
+    var canvas = document.getElementById("c");
+    var text = document.getElementById("t");
+    var ctx = canvas.getContext("2d");
+    var W = canvas.width = 1440;
+    var H = canvas.height = 720;
+
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+    // import a few useful functions from Math
+    'sin cos random PI floor max min sqrt hypot'.split(' ')
+      .forEach(fn => { window[fn] = Math[fn]; });
+
+    var π = PI, τ = TAU = 2 * PI;
+
+    var rand = (lo, hi) => lo + ((hi - lo) * random());
+    var mix = (a, b, p) => p * (a - b) + b;
+    var pmod = (a, b) => (a % b + b) % b;
+
+    // f : [-1, 1] × [-1, 1] => [-1, 1]
+    var transforms = {
+      // arity 0
+      minus_one : () => -1,
+      zero : () => 0,
+      one : () => 1,
+
+      // arity 1
+      neg: (a) => -a,
+
+      // arity 2
+      x : x => y => x,
+      y : x => y => y,
+      ball : x => y => max(0, 1 - hypot(x, y)),
+
+      trans: (f) => (x, y) => f(y, x),
+      flipx: (f) => (x, y) => f(-x, y),
+      flipy: (f) => (x, y) => f(x, -y),
+
+      mix: (f0, f1, a) => (x, y) => mix(f0(x, y), f1(x, y), .5 * a + .5)
+    }
+
+    // plasma
+    //
+    // a sin(b)
+
+    function draw() {
+      ctx.fillStyle = 'rgb(221,221,204)';
+      ctx.fillRect(0, 0, W, H);
+      ctx.save();
+      ctx.translate(W * .5, H * .5);
+
+//
+
+// GFX CODE GOES HERE
+
+//
+
+      ctx.restore();
+      window.requestAnimationFrame(draw);
+    }
+
+    function getMousePos(canvas, evt) {
+      var rect = canvas.getBoundingClientRect();
+      return {
+        x: evt.clientX - rect.left,
+        y: evt.clientY - rect.top
+      };
+    }
+
+    var mouse = {x: 0, y: 0};
+    canvas.addEventListener('mousemove', function(evt) {
+      mouse = getMousePos(canvas, evt);
+    }, false);
+
+    var keys = [];
+    window.addEventListener("keydown", function(e){
+      keys[e.keyCode] = true;
+    })
+    window.addEventListener("keyup", function(e){
+      keys[e.keyCode] = false;
+    })
+    draw();
+
+  </script>
+</body>
+
+</html>

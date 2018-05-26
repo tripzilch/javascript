@@ -1,0 +1,61 @@
+<!doctype html><html>
+
+<head>
+  <meta charset="utf-8">
+  <style>*{margin:0;padding:0;}
+    body {
+      background: #113;
+    }
+    canvas{
+      display: block;
+      margin: 8px auto;
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="c"></canvas>
+  <script>
+    let canvas = document.getElementById("c");
+    let W = canvas.width = 1440;
+    let H = canvas.height = 720;
+    let canvas_rect = canvas.getBoundingClientRect();
+    let [mouse_x, mouse_y] = [0, 0];
+    let keys = [];
+
+    canvas.addEventListener('mousemove', ev => { 
+      [mouse_x, mouse_y] = [ev.clientX - canvas_rect.left, ev.clientY - canvas_rect.top];
+    }, false);
+    window.addEventListener("keydown", ev => { keys[ev.keyCode] = true; });
+    window.addEventListener("keyup", ev => { keys[e.keyCode] = false; });
+
+    let ctx = canvas.getContext("2d");
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+    let PI = Math.PI, TAU = PI * 2;
+    let sin = Math.sin, cos = Math.cos, random = Math.random, floor = Math.floor;
+    let max = Math.max, min = Math.min, sqrt = Math.sqrt, hypot = Math.hypot;
+    let mix = (a, b, p) => a * (1 - p) + b * p;
+    let rand = (lo, hi) => lo + ((hi - lo) * random());
+    let irand = (lo, hi) => floor(lo + ((hi - lo) * random()));
+    let nrand = () => random() - random();
+    let sample = (a) => a[irand(0, a.length)];
+    let wrap = (a, n) => (a + n) % n;
+    let pmod = (a, b) => (a % b + b) % b;
+
+    ctx.fillStyle = '#ddc';
+    ctx.fillRect(0, 0, W, H);
+
+    function draw() {
+      ctx.strokeStyle = '#223';
+
+      /* GFX CODE GOES HERE */
+      
+      window.requestAnimationFrame(draw);
+    }
+    draw();
+
+  </script>
+</body>
+
+</html>
