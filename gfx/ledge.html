@@ -18,8 +18,11 @@
 <body>
   <canvas id="c"></canvas>
   <script>
+    'use strict';
     let canvas = document.getElementById("c");
-    const W = 3000, H = 2000;
+    const oversample = 1;
+    const W = 1200 * oversample, 
+          H = 800 * oversample;
     canvas.width = W;
     canvas.height = H;
     let canvas_rect = canvas.getBoundingClientRect();
@@ -34,13 +37,13 @@
     window.addEventListener("keyup", ev => { keys[ev.keyCode] = false; });
 
     const PI = Math.PI, TAU = PI * 2;
-    let sin = Math.sin, cos = Math.cos, tan = Math.tan, random = Math.random, floor = Math.floor;
-    let max = Math.max, min = Math.min, sqrt = Math.sqrt, hypot = Math.hypot, abs = Math.abs;
+    // let sin = Math.sin, cos = Math.cos, tan = Math.tan, Math.random = Math.random, Math.floor = Math.floor;
+    // let Math.max = Math.max, Math.min = Math.min, sqrt = Math.sqrt, hypot = Math.hypot, abs = Math.abs;
     let mix = (a, b, p) => a * (1 - p) + b * p;
-    let clamp = (x, lo, hi) => min(hi, max(lo, x));
-    let rand = (lo, hi) => lo + ((hi - lo) * random());
-    let irand = (lo, hi) => floor(lo + ((hi - lo) * random()));
-    let nrand = () => random() - random();
+    let clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
+    let rand = (lo, hi) => lo + ((hi - lo) * Math.random());
+    let irand = (lo, hi) => Math.floor(lo + ((hi - lo) * Math.random()));
+    let nrand = () => Math.random() - Math.random();
     let sample = (a) => a[irand(0, a.length)];
     let wrap = (a, n) => (a + n) % n;
     let pmod = (a, b) => (a % b + b) % b;
@@ -48,53 +51,148 @@
       x = clamp((x - e0) / (e1 - e0), 0, 1);
       return x * x * (3 - 2 * x);
     }
-    class vec2 {
+    class Vec2 {
       constructor(x, y) {
         this.x = x;
         this.y = y;
       }
-      iop(other, f) {
-        this.x = f(this.x, other.x);
-        this.y = f(this.y, other.y);
+      // vector update methods
+      add(v) { this.x += v.x; this.y += v.y; return this; }
+      sub(v) { this.x -= v.x; this.y -= v.y; return this; }
+      mul(v) { this.x *= v.x; this.y *= v.y; return this; }
+      madd(v, a) { this.x += v.x * a; this.y += v.y * a; return this; }
+      mix(v, p) { this.x += (v.x - this.x) * p; this.y += (v.y - this.y) * p; return this; }
+      rot90() { [this.x, this.y] = [-this.y, this.x]; return this; }
+      rot180() { this.x *= -1; this.y *= -1; return this; }
+      rot270() { [this.x, this.y] = [this.y, -this.x]; return this; }
+      normalize() { let h = 1 / Math.hypot(this.x, this.y); this.x *= h; this.y *= h; return this; }
+      op1(f) { this.x = f(this.x); this.y = f(this.y); return this; }
+      op2(v, f) { this.x = f(this.x, v.x); this.y = f(this.y, v.y); return this; }
+      op3(v, w, f) { this.x = f(this.x, v.x, w.x); this.y = f(this.y, v.y, w.y); return this; }
+
+      // scalar methods
+      dist(v) { return Math.hypot(this.x - v.x, this.y - v.y); }
+      hypot() { return Math.hypot(this.x, this.y); }
+
+      // swizzling
+      get xy() { return new Vec2(this.x, this.y); } // also copy
+      get yx() { return new Vec2(this.y, this.x); }
+      get xx() { return new Vec2(this.x, this.x); }
+      get yy() { return new Vec2(this.y, this.y); }
+      set xy(v) { [this.x, this.y] = [v.x, v.y]; }
+      set yx(v) { [this.x, this.y] = [v.y, v.x]; }
+
+      // static initializers
+      static random(a=1, rng=Math.random) {
+        return new Vec2(a * rng(), a * rng());
       }
-      iadd(other) {
-        this.x = this.x + other.x;
-        this.y = this.x + other.x;
-      }
-      isub(other) {
-        this.x = this.x - other.x;
-        this.y = this.x - other.x;
-      }
-      imul(other) {
-        this.x = this.x * other.x;
-        this.y = this.x * other.x;
-      }
-      // iop!
-      
+
     }
 
     function clear(ctx, c='#fff') { ctx.fillStyle = c; ctx.fillRect(0, 0, W, H); }
-    function draw_path(ctx, pp) {
-      let L = pp.length;
-      // let qq = pp.map((v,i,a) => a[max(0,i-1)]))
-      let i = 0;
-      let [x, y] = pp[i++];
-      let px, py;
-      ctx.beginPath();
-      for (; i < L; i++) {
-        [px, py] = [x, y];
-        [x, y] = pp[i];
-        let [dx, dy] = [x - px, y - py];
-        if (abs(y - py) < 2.0) {
-          ctx.lineTo(mix(x, px, .5), mix(y, py, .5) / 4 + H/4);
-        } else {
-          ctx.moveTo(x, y / 4 + H/4);
+
+    function linear_curve(ctx, vv) {
+      ctx.moveTo(vv[0].x, vv[0].y)
+      for (var i = 1; i < vv.length; i++) { ctx.lineTo(vv[i].x, vv[i].y); }
+      return vv;
+    }
+
+    function quadratic_curve(ctx, vv) { /*      
+      https://stackoverflow.com/a/7058606 -- The problem with joining subsequent sample points together with disjoint "curveTo" type functions, is that where the curves meet is not smooth. This is because the two curves share an end point but are influenced by disjoint control points. One solution is to "curve to" the midpoints between the next 2 subsequent sample points. Joining the curves using these new interpolated points gives a smooth transition at the end points. What is an end point for one iteration becomes a control point for the next iteration. Note: this solution does not actually draw through each of the points. There is a solution to go through all the sample points, but it is much more complicated (see http://www.cartogrammar.com/blog/actionscript-curves-update/)
+
+        for (i = 1; i < points.length - 2; i ++) {
+          var xc = (points[i].x + points[i + 1].x) / 2;
+          var yc = (points[i].y + points[i + 1].y) / 2;
+          ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
         }
+        ctx.quadraticCurveTo(points[i].x, points[i].y, points[i+1].x,points[i+1].y);    */
+      ctx.moveTo(vv[0].x, vv[0].y)
+      for (var i = 1; i < vv.length - 2; i++) {
+        let vi = vv[i];
+        let vc = vi.xy.mix(vv[i + 1], .5);
+        ctx.quadraticCurveTo(vi.x, vi.y, vc.x, vc.y);
       }
+      ctx.quadraticCurveTo(vv[i].x, vv[i].y, vv[i + 1].x,vv[i + 1].y);
+      return vv;
+    }
+
+    function smooth_path(ctx, pp) {
+      let sp = [];
+      for (var i = 1; i < pp.length; i++) {
+        sp.push(pp[i].xy.mix(pp[i - 1], .5));
+      }
+      return sp;
+    }
+
+    function stroke_path_smooth(ctx, pp) {      
+      ctx.beginPath();
+      linear_curve(ctx, smooth_path(pp));
       ctx.stroke();
     }
 
-    let DISTANCE = 20.0, 
+    function thick_brush(ctx, pp, ww) {
+      // draw a stroke/brush along points pp with thickness ww
+
+      // calculate normals
+      let np = [];
+      let i = 1;
+      np.push(pp[i].xy.sub(pp[i - 1]).normalize().rot90());
+      for (; i < pp.length - 1; i++) {
+        np.push(pp[i + 1].xy.sub(pp[i - 1]).normalize().rot90());
+      }
+      np.push(pp[i].xy.sub(pp[i - 1]).normalize().rot90());
+
+      // construct both sides of stroke
+      let s1 = [], s2 = [];
+      for (i = 0; i < pp.length; i++) {
+        let p = pp[i], n = np[i], w = ww[i];
+        s1.push(p.xy.madd(n, w));
+        s2.push(p.xy.madd(n, -w));
+      }
+      // combine
+      s2.reverse();
+      let ss = s1.concat(s2);
+
+      // draw
+      ctx.beginPath();
+      linear_curve(ctx, ss);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke(); // for debug: I don't plan to stroke strokes
+    }
+
+    var frame_count = 0;
+    function draw() {
+      frame_count++;
+      clear(ctx, "#233");
+
+      let pp = [], ww = [];
+      let t = 0;
+      for (; t < 3; t += .01) {
+        let x = 0;
+        let y = 0;
+        let w = 0;
+        pp.push(new Vec2(x, y));
+        ww.push(w);
+      }
+
+      ctx.fillStyle = "#c62";
+      ctx.strokeStyle = "#f92";
+      ctx.lineWidth = 1.5; 
+      thick_brush(ctx, pp, ww);
+
+      window.requestAnimationFrame(draw);
+    }
+
+    let ctx = canvas.getContext("2d");
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+    clear(ctx, '#000');
+    draw();
+
+    /***************** LEDGE STUFF ****************** 
+
+    let DISTANCE = 70.0, 
         LEN = 2000,
         STEP = 1.0,
         BEST_OF = 12;
@@ -103,12 +201,12 @@
     ledge = ledge.map(e => rand(0.9, 1.1) * e);
     console.log(ledge);
     function fledge(y) {
-      let yi = floor(y);
+      let yi = Math.floor(y);
       let yf = y - yi;
       return ledge[pmod(yi, H)] * (1 - yf) + ledge[pmod(yi + 1, H)] * yf;
     }
     function dledge(x, y) {
-      let yi = floor(y);
+      let yi = Math.floor(y);
       let yf = y - yi;
       let dx1 = x - ledge[pmod(yi - 1, H)], dy1 = y - yi - 1, d1 = hypot(dx1, dy1);
       let dx2 = x - ledge[pmod(yi    , H)], dy2 = y - yi    , d2 = hypot(dx2, dy2);
@@ -125,9 +223,9 @@
         let [ermin, amin, xmin, ymin] = [99999, 0, 0, 0];
         let na = a;
         for (var k = 0; k < BEST_OF; k++) {
-          // step random angle
+          // step Math.random angle
           na = a + 0.15 * nrand() * PI / 2;
-          //na = max(min(na, PI), 0)
+          //na = Math.max(Math.min(na, PI), 0)
           let nx = x + STEP / tan(na);
           let ny = y + STEP;
           let nxa = x + 5 * STEP / tan(na);
@@ -147,11 +245,10 @@
       frame_count++;
 
       let pp = get_path(rand(0, H));
-
       // adjust ledge
       pp.forEach(([x, y]) => { // todo properly loop this for if STEP > 1 and just to be sure
-        let yi = pmod(floor(y), H);
-        ledge[yi] = max(ledge[yi], x);
+        let yi = pmod(Math.floor(y), H);
+        ledge[yi] = Math.max(ledge[yi], x);
       });
       // smoothen ledge
       var min_ledge = W * 4;
@@ -159,17 +256,17 @@
         let ledge1 = new Array(H);
         for (var i = 0; i < H; i++) {
           let [a, b, c] = [ledge[pmod(i - 1, H)], ledge[i], ledge[pmod(i + 1, H)]];
-          let d = max(a, b, c);
+          let d = Math.max(a, b, c);
           ledge1[i] = (a + b * 2 + c) / 4;
-          min_ledge = min(ledge1[i], min_ledge);
+          min_ledge = Math.min(ledge1[i], min_ledge);
         }
         ledge = ledge1;
       }
 
-      //let arcut = (ar, p) => ar.slice(floor(ar.length * p), floor(ar.length * (1-p)));
+      //let arcut = (ar, p) => ar.slice(Math.floor(ar.length * p), Math.floor(ar.length * (1-p)));
 
       let g = smoothstep(min_ledge, W * 0.1, W * 0.9);
-      let c = random() < g ? 1 : 0;
+      let c = Math.random() < g ? 1 : 0;
       aa = '1.0'; // irand(1, 30) / 100;
       ctx.strokeStyle = [
         'rgba( 56, 16,144, ' + aa + ')', 
@@ -180,11 +277,7 @@
       if (min_ledge <= W + DISTANCE) window.requestAnimationFrame(draw);
     }
 
-    let ctx = canvas.getContext("2d");
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-
-    clear(ctx, '#000');
-    draw();
+      ******** END LEDGE STUFF **********************/
 
   </script>
 </body>
