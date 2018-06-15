@@ -167,17 +167,17 @@
       clear(ctx, "#233");
 
       let pp = [], ww = [];
-      let t = 0;
-      for (; t < 3; t += .01) {
-        let x = 0;
-        let y = 0;
-        let w = 0;
-        pp.push(new Vec2(x, y));
+      let t;
+      for (t = 0; t < 3; t += .01) {
+        let x = Math.sin(t) * Math.cos(1 + t * 2) * 250;
+        let y = Math.cos(t) * Math.sin(2 + t * 2) * 250;
+        let w = 2.0 + (1 + Math.sin(3 + t * 17)) * 3;
+        pp.push(new Vec2(x + W/2, y + H/2));
         ww.push(w);
       }
 
       ctx.fillStyle = "#c62";
-      ctx.strokeStyle = "#f92";
+      ctx.strokeStyle = "rgba(255,144,32,0.0)";
       ctx.lineWidth = 1.5; 
       thick_brush(ctx, pp, ww);
 
