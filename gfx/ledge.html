@@ -8,9 +8,9 @@
     }
     canvas{
       display: block;
-      margin: 8px auto;
+      margin: 4px auto;
       width: 1200px;
-      height: 800px;
+      height: 600px;
     }
   </style>
 </head>
@@ -21,14 +21,14 @@
     'use strict';
     let canvas = document.getElementById("c");
     const oversample = 1;
-    const W = 1200 * oversample, 
-          H = 800 * oversample;
+    const W = 1200 * oversample,
+          H = 600 * oversample;
     canvas.width = W;
     canvas.height = H;
     let canvas_rect = canvas.getBoundingClientRect();
 
     let [mouse_x, mouse_y] = [0, 0];
-    canvas.addEventListener('mousemove', ev => { 
+    canvas.addEventListener('mousemove', ev => {
       [mouse_x, mouse_y] = [ev.clientX - canvas_rect.left, ev.clientY - canvas_rect.top];
     }, false);
 
@@ -97,7 +97,7 @@
       return vv;
     }
 
-    function quadratic_curve(ctx, vv) { /*      
+    function quadratic_curve(ctx, vv) { /*
       https://stackoverflow.com/a/7058606 -- The problem with joining subsequent sample points together with disjoint "curveTo" type functions, is that where the curves meet is not smooth. This is because the two curves share an end point but are influenced by disjoint control points. One solution is to "curve to" the midpoints between the next 2 subsequent sample points. Joining the curves using these new interpolated points gives a smooth transition at the end points. What is an end point for one iteration becomes a control point for the next iteration. Note: this solution does not actually draw through each of the points. There is a solution to go through all the sample points, but it is much more complicated (see http://www.cartogrammar.com/blog/actionscript-curves-update/)
 
         for (i = 1; i < points.length - 2; i ++) {
@@ -124,7 +124,7 @@
       return sp;
     }
 
-    function stroke_path_smooth(ctx, pp) {      
+    function stroke_path_smooth(ctx, pp) {
       ctx.beginPath();
       linear_curve(ctx, smooth_path(pp));
       ctx.stroke();
@@ -163,23 +163,31 @@
 
     var frame_count = 0;
     function draw() {
-      frame_count++;
+      if (keys[74]) frame_count--;
+      if (keys[75]) frame_count++;
       clear(ctx, "#233");
 
+      let f = frame_count * .02;
       let pp = [], ww = [];
       let t;
-      for (t = 0; t < 3; t += .01) {
-        let x = Math.sin(t) * Math.cos(1 + t * 2) * 250;
-        let y = Math.cos(t) * Math.sin(2 + t * 2) * 250;
+      for (t = 0; t < 3; t += .005) {
+        let x = Math.sin(t + f * .07) * Math.cos(1 + t * 2 + f * .1) * 250;
+        let y = Math.cos(t - f * .06) * Math.sin(2 + t * 2 - f * .13) * 250;
         let w = 2.0 + (1 + Math.sin(3 + t * 17)) * 3;
+        w = 36 * smoothstep(Math.min(t, 3 - t), 0, 0.75)
         pp.push(new Vec2(x + W/2, y + H/2));
         ww.push(w);
       }
 
       ctx.fillStyle = "#c62";
-      ctx.strokeStyle = "rgba(255,144,32,0.0)";
-      ctx.lineWidth = 1.5; 
+      ctx.strokeStyle = "rgba(255,144,32,1.0)";
+      ctx.lineWidth = 1.0;
       thick_brush(ctx, pp, ww);
+
+      ctx.strokeStyle = "#831";
+      ctx.beginPath();
+      linear_curve(ctx, pp);
+      ctx.stroke();
 
       window.requestAnimationFrame(draw);
     }
@@ -190,9 +198,9 @@
     clear(ctx, '#000');
     draw();
 
-    /***************** LEDGE STUFF ****************** 
+    /***************** LEDGE STUFF ******************
 
-    let DISTANCE = 70.0, 
+    let DISTANCE = 70.0,
         LEN = 2000,
         STEP = 1.0,
         BEST_OF = 12;
@@ -236,7 +244,7 @@
         }
         [x, y, a] = [xmin, ymin, amin];
         pp.push([x, y]);
-      }      
+      }
       return pp;
     }
 
@@ -269,9 +277,9 @@
       let c = Math.random() < g ? 1 : 0;
       aa = '1.0'; // irand(1, 30) / 100;
       ctx.strokeStyle = [
-        'rgba( 56, 16,144, ' + aa + ')', 
+        'rgba( 56, 16,144, ' + aa + ')',
         'rgba(255,160, 24, ' + aa + ')'][c];
-      ctx.lineWidth = 4; 
+      ctx.lineWidth = 4;
       draw_path(ctx, pp);
 
       if (min_ledge <= W + DISTANCE) window.requestAnimationFrame(draw);
