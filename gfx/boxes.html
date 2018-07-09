@@ -1,0 +1,145 @@
+<!doctype html><html>
+<head>
+  <meta charset="utf-8">
+  <title>BOXES</title>
+  <style>*{margin:0;padding:0;}
+    body {
+      background: #000;
+    }
+    canvas{
+      display: block;
+      margin: 4px auto;
+      width: 1200px;
+      height: 900px;
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="c"></canvas>
+  <script src="math.js"></script>
+  <script>
+    'use strict';
+
+    // init canvas
+    let canvas = document.getElementById("c");
+    const oversample = 1;
+    const W = 1200 * oversample,
+          H = 900 * oversample;
+    canvas.width = W;
+    canvas.height = H;
+    let canvas_rect = canvas.getBoundingClientRect();
+    let ctx = canvas.getContext("2d");
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+    // mouse / kbd events
+    let [mouse_x, mouse_y] = [0, 0];
+    canvas.addEventListener('mousemove', ev => {
+      [mouse_x, mouse_y] = [ev.clientX - canvas_rect.left, ev.clientY - canvas_rect.top];
+    }, false);
+
+    let keys = [];
+    window.addEventListener("keydown", ev => { keys[ev.keyCode] = true; });
+    window.addEventListener("keyup", ev => { keys[ev.keyCode] = false; });
+
+    // canvas 2dContext drawing functions
+    function clear(ctx, c='#fff') { ctx.fillStyle = c; ctx.fillRect(0, 0, W, H); }
+
+    function linear_curve(ctx, vv) {
+      ctx.moveTo(vv[0].x, vv[0].y)
+      for (var i = 1; i < vv.length; i++) { ctx.lineTo(vv[i].x, vv[i].y); }
+      return vv;
+    }
+
+    function quadratic_curve(ctx, vv) { /*
+      https://stackoverflow.com/a/7058606 -- The problem with joining subsequent sample points together with disjoint "curveTo" type functions, is that where the curves meet is not smooth. This is because the two curves share an end point but are influenced by disjoint control points. One solution is to "curve to" the midpoints between the next 2 subsequent sample points. Joining the curves using these new interpolated points gives a smooth transition at the end points. What is an end point for one iteration becomes a control point for the next iteration. Note: this solution does not actually draw through each of the points. There is a solution to go through all the sample points, but it is much more complicated (see http://www.cartogrammar.com/blog/actionscript-curves-update/)
+
+        for (i = 1; i < points.length - 2; i ++) {
+          var xc = (points[i].x + points[i + 1].x) / 2;
+          var yc = (points[i].y + points[i + 1].y) / 2;
+          ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+        }
+        ctx.quadraticCurveTo(points[i].x, points[i].y, points[i+1].x,points[i+1].y);    */
+      ctx.moveTo(vv[0].x, vv[0].y)
+      for (var i = 1; i < vv.length - 2; i++) {
+        let vi = vv[i];
+        let vc = vi.xy.mix(vv[i + 1], .5);
+        ctx.quadraticCurveTo(vi.x, vi.y, vc.x, vc.y);
+      }
+      ctx.quadraticCurveTo(vv[i].x, vv[i].y, vv[i + 1].x,vv[i + 1].y);
+      return vv;
+    }
+
+    function smooth_path(ctx, pp) {
+      let sp = [];
+      for (var i = 1; i < pp.length; i++) {
+        sp.push(pp[i].xy.mix(pp[i - 1], .5));
+      }
+      return sp;
+    }
+
+    function stroke_path_smooth(ctx, pp) {
+      ctx.beginPath();
+      linear_curve(ctx, smooth_path(pp));
+      ctx.stroke();
+    }
+
+    function thick_brush(ctx, pp, ww) {
+      // draw a stroke/brush along points pp with thickness ww
+      let s1 = [], s2 = [];
+      let prev, [cur, next] = [pp[0], pp[1]];
+      for (let i = 2; i < pp.length; i++) {
+        [prev, cur, next] = [cur, next, pp[i]];
+        let n = next.xy.sub(prev).normalize().rot90();
+        let w = ww[i];
+        s1.push(cur.xy.madd(n, w));
+        s2.push(cur.xy.madd(n, -w));
+      }
+
+      // connect both sides of stroke, one backwards
+      s2.reverse();
+      let ss = s1.concat(s2);
+
+      // draw
+      ctx.beginPath();
+      linear_curve(ctx, ss);
+      ctx.closePath();
+      ctx.fill();
+      //ctx.stroke(); // debug
+    }
+
+    // cartooony rectangle blackground
+    clear(ctx, '#eee0cc');
+
+    let x1 = 240;
+    let dy = 24;
+    let wonk = 0.33;
+    let y = dy;
+    ctx.beginPath();
+    while (y < H - dy * 4) {
+      let ysize = dy * nrand(1, 5);
+      let ystep = rand(dy, ysize);
+      let xsize = dy * nrand(1, 11);
+      console.log(ysize, ystep, xsize);
+  
+      ctx.moveTo(0, y - dy * nrand(0, wonk))
+      ctx.lineTo(x1, y);
+      ctx.lineTo(x1 + xsize + dy * nrand(0, wonk), y - dy * nrand(0, wonk));
+      ctx.lineTo(x1 + xsize + dy * nrand(0, wonk), y + ysize + dy * nrand(0, wonk));
+      ctx.lineTo(x1, y + ysize);
+      ctx.lineTo(0, y + ysize + dy * nrand(0, wonk));
+      ctx.closePath();
+      y += ystep;
+    }
+    ctx.strokeStyle = "#000";
+    ctx.lineWidth = 3.0;
+    ctx.fillStyle = "#000";
+    ctx.stroke();
+    ctx.fill();
+    //    ctx.strokeStyle = "#080";
+    //    ctx.lineWidth = 1.0;
+    //    ctx.stroke();
+  </script>
+</body>
+
+</html>
