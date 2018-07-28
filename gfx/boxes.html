@@ -108,37 +108,85 @@
       //ctx.stroke(); // debug
     }
 
-    // cartooony rectangle blackground
-    clear(ctx, '#eee0cc');
+    function draw(ctx, DRAW_DEBUG=true) {
+      // cartooony rectangle blackground
+      console.log("=================================================")
+      clear(ctx, '#eee0cc');
 
-    let x1 = 240;
-    let dy = 24;
-    let wonk = 0.33;
-    let y = dy;
-    ctx.beginPath();
-    while (y < H - dy * 4) {
-      let ysize = dy * nrand(1, 5);
-      let ystep = rand(dy, ysize);
-      let xsize = dy * nrand(1, 11);
-      console.log(ysize, ystep, xsize);
-  
-      ctx.moveTo(0, y - dy * nrand(0, wonk))
-      ctx.lineTo(x1, y);
-      ctx.lineTo(x1 + xsize + dy * nrand(0, wonk), y - dy * nrand(0, wonk));
-      ctx.lineTo(x1 + xsize + dy * nrand(0, wonk), y + ysize + dy * nrand(0, wonk));
-      ctx.lineTo(x1, y + ysize);
-      ctx.lineTo(0, y + ysize + dy * nrand(0, wonk));
-      ctx.closePath();
-      y += ystep;
+      let xe = 240;
+      let s = 36;
+      let wonk = 0.33;
+      let R = () => nrand(0, wonk * s);
+
+      if (DRAW_DEBUG) {
+        ctx.fillStyle = "#BB9";
+        ctx.fillRect(W - s * 2, s, s, s);
+        ctx.fillRect(xe, 0, 1, H);
+      }
+
+      let y = s * 3;
+
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = 3.0;
+      ctx.fillStyle = "#000";
+      ctx.beginPath();
+      while (y < H - s * 3) {
+        let ysize = s * nrand(1, 6);
+        let ystep = ysize * 0.5; // nrand(Math.max(s, ysize / 3), ysize);
+        let xsize = s * nrand(1, 8);
+        let dx1 = xsize + R(), dy1 = -ysize/2 - R();
+        let dx2 = xsize + R(), dy2 = ysize/2 + R();
+        console.log("y:", y, "ystep =", ystep, "xsize =", xsize, "ysize =", ysize);
+        // column
+        ctx.fillRect(0, y - ctx.lineWidth/2 - ysize/2, xe, ysize + ctx.lineWidth);
+        // wonky protrusion
+        ctx.moveTo(      xe , y - ysize/2);
+        ctx.lineTo(dx1 + xe , y + dy1    );
+        ctx.lineTo(dx2 + xe , y + dy2    );
+        ctx.lineTo(      xe , y + ysize/2);
+        // stipple fade boxes
+        // calc first protrusions: project right side of quad. todo Vec2 or perhaps stuff
+     /* class Quad {              
+          // constructor
+          Quad(vertices) { 
+            this.p = vertices; // array of 4x Vec2 
+          }
+          static random(y, s=36, wonk=0.33, xe=240) {
+            // init proper random quad
+          }
+          project([s0,s1,s2,s3]) {
+            // project each edge ei outwards (si>1) or inwards (0<si<1), to factor si distance from opposite edge
+            // or something                
+          }
+          project(i,d0, d1) {
+            // project new quad perpendicular to edge i, from dist d0 to dist d1 
+          }
+          split(i, min_size, margin) {
+            // chop quad perpendicular along edge i, in equal sized chunks of at least size min_size, 
+            // taking into account between-chunk margins 
+          }
+          Quad.drawPath() {
+              
+          } 
+        } */
+
+        let pd1 = 1 + s / (2 * dx1);
+        let pdx1 = dx1 * pd1, pdy1 = dy1 * pd1;
+        let pd2 = 1 + s / (2 * dx2);
+        let pdx2 = dx2 * pd2, pdy2 = dy2 * pd2;
+        y += ystep;
+      }
+      ctx.stroke();
+      ctx.fill();
+
+      if (DRAW_DEBUG) {
+        ctx.strokeStyle = "#080";
+        ctx.lineWidth = 1.0;
+        ctx.stroke();
+      }
     }
-    ctx.strokeStyle = "#000";
-    ctx.lineWidth = 3.0;
-    ctx.fillStyle = "#000";
-    ctx.stroke();
-    ctx.fill();
-    //    ctx.strokeStyle = "#080";
-    //    ctx.lineWidth = 1.0;
-    //    ctx.stroke();
+    draw(ctx);
+    window.addEventListener("keydown", ev => { if (ev.key == " ") draw(ctx); });
   </script>
 </body>
 

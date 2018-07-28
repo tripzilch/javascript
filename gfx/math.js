@@ -7,7 +7,7 @@ let mix = (a, b, p) => a * (1 - p) + b * p;
 let clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
 let rand = (lo=0, hi=1) => lo + (hi - lo) * Math.random();
 let irand = (lo, hi) => Math.floor(lo + (hi - lo) * Math.random());
-let nrand = (lo=0, hi=1) => lo + (hi - lo) * .5 * (1 + Math.random() - Math.random());
+let nrand = (lo=-1, hi=1) => lo + (hi - lo) * .5 * (1 + Math.random() - Math.random());
 let sample = (a) => a[irand(0, a.length)];
 let wrap = (a, n) => (a + n) % n;
 let pmod = (a, b) => (a % b + b) % b;
