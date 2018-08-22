@@ -9,8 +9,9 @@ let rand = (lo=0, hi=1) => lo + (hi - lo) * Math.random();
 let irand = (lo, hi) => Math.floor(lo + (hi - lo) * Math.random());
 let nrand = (lo=-1, hi=1) => lo + (hi - lo) * .5 * (1 + Math.random() - Math.random());
 let sample = (a) => a[irand(0, a.length)];
-let wrap = (a, n) => (a + n) % n;
-let pmod = (a, b) => (a % b + b) % b;
+let chance = (p) => rand() < p;
+let wrap = (a, m) => (a % m + m) % m;
+let dmod = (a, b, m) => Math.min(wrap(a - b, m), wrap(b - a, m));
 let smoothstep = (x, e0, e1) => {
   x = clamp((x - e0) / (e1 - e0), 0, 1);
   return x * x * (3 - 2 * x);

@@ -113,7 +113,7 @@
       console.log("=================================================")
       clear(ctx, '#eee0cc');
 
-      let xe = 240;
+      let left = 240;
       let s = 36;
       let wonk = 0.33;
       let R = () => nrand(0, wonk * s);
@@ -121,7 +121,7 @@
       if (DRAW_DEBUG) {
         ctx.fillStyle = "#BB9";
         ctx.fillRect(W - s * 2, s, s, s);
-        ctx.fillRect(xe, 0, 1, H);
+        ctx.fillRect(left, 0, 1, H);
       }
 
       let y = s * 3;
@@ -130,20 +130,28 @@
       ctx.lineWidth = 3.0;
       ctx.fillStyle = "#000";
       ctx.beginPath();
+      /*
+         construct border -> list of quads 
+         construct outline -> line pieces -> can draw
+         loop outline for dips and bumps (the odd line pieces are vertical)
+           with chance X% add gribbles
+      */
+      ctx.fillRect(0, 0, left, H);
       while (y < H - s * 3) {
         let ysize = s * nrand(1, 6);
-        let ystep = ysize * 0.5; // nrand(Math.max(s, ysize / 3), ysize);
+        let ystep = ysize * 0.8; // nrand(Math.max(s, ysize / 3), ysize);
         let xsize = s * nrand(1, 8);
-        let dx1 = xsize + R(), dy1 = -ysize/2 - R();
-        let dx2 = xsize + R(), dy2 = ysize/2 + R();
-        console.log("y:", y, "ystep =", ystep, "xsize =", xsize, "ysize =", ysize);
+        let dx1 = R(), dy1 = R();
+        let dx2 = R(), dy2 = R();
+        let top = y - ysize/2, bottom = y + ysize/2, right = left + xsize;
+        console.log(`y=${y} xsize=${xsize} ysize=${ysize} top=${top} right=${right} bottom=${bottom} left=${left}`);
         // column
-        ctx.fillRect(0, y - ctx.lineWidth/2 - ysize/2, xe, ysize + ctx.lineWidth);
+        // ctx.fillRect(0, top - ctx.lineWidth/2, left, bottom - top + ctx.lineWidth);
         // wonky protrusion
-        ctx.moveTo(      xe , y - ysize/2);
-        ctx.lineTo(dx1 + xe , y + dy1    );
-        ctx.lineTo(dx2 + xe , y + dy2    );
-        ctx.lineTo(      xe , y + ysize/2);
+        ctx.moveTo(       left , top);
+        ctx.lineTo(dx1 + right , top - dy1);
+        ctx.lineTo(dx2 + right , bottom - dy2);
+        ctx.lineTo(       left , bottom);
         // stipple fade boxes
         // calc first protrusions: project right side of quad. todo Vec2 or perhaps stuff
      /* class Quad {              
@@ -151,7 +159,7 @@
           Quad(vertices) { 
             this.p = vertices; // array of 4x Vec2 
           }
-          static random(y, s=36, wonk=0.33, xe=240) {
+          static random(y, s=36, wonk=0.33, left=240) {
             // init proper random quad
           }
           project([s0,s1,s2,s3]) {
@@ -170,6 +178,7 @@
           } 
         } */
 
+        // protrusion sizes, I guess? (maybe just delete)
         let pd1 = 1 + s / (2 * dx1);
         let pdx1 = dx1 * pd1, pdy1 = dy1 * pd1;
         let pd2 = 1 + s / (2 * dx2);

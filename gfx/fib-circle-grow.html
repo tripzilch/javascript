@@ -1,0 +1,108 @@
+<!doctype html><html>
+
+<head>
+  <meta charset="utf-8">
+  <style>*{margin:0;padding:0;}
+    body {
+      background: #513;
+    }
+    canvas{
+      display: block;
+      margin: 8px auto;
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="c"></canvas>
+  <script src="math.js"></script>
+  <script>
+    'use strict';
+    // init canvas
+    let canvas = document.getElementById("c");
+    let W = canvas.width = 1440;
+    let H = canvas.height = 720;
+    let canvas_rect = canvas.getBoundingClientRect();
+    let [mouse_x, mouse_y] = [0, 0];
+    let keys = [];
+
+    canvas.addEventListener('mousemove', ev => { 
+      [mouse_x, mouse_y] = [ev.clientX - canvas_rect.left, ev.clientY - canvas_rect.top];
+    }, false);
+    window.addEventListener("keydown", ev => { keys[ev.keyCode] = true; });
+    window.addEventListener("keyup", ev => { keys[ev.keyCode] = false; });
+
+    let ctx = canvas.getContext("2d");
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+    function clear(ctx, c='#fff') { ctx.fillStyle = c; ctx.fillRect(0, 0, W, H); }
+    function circle(ctx, x, y, r) { ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, TAU); }
+
+    clear(ctx, '#ddc');
+
+    let frame_count = 0;
+    let t = Date.now() / 1000.0; // seconds
+    let new_r = 1.0; // millimetres
+    let best_phi = rand(0, TAU);
+    let best_P = 99999.9;
+    let buds = [{phi: 0, d: 0, r: new_r}];
+    let running = true;
+    function draw() {
+      if (!running) return;
+      let t_prev = t;
+      t = Date.now() / 1000.0;
+      let dt = t - t_prev;
+      frame_count++;
+      clear(ctx, "#233");
+      ctx.fillStyle = "#BCC";
+      ctx.save();      
+      ctx.translate(W/2, H/2);
+      ctx.beginPath();
+      ctx.moveTo(0, -H/2); ctx.lineTo(0, H/2);
+      ctx.moveTo(-W/2, 0); ctx.lineTo(W/2, 0);
+      ctx.strokeStyle = "#000";
+      ctx.lineWidth = 0.25;
+      ctx.stroke();
+
+      ctx.scale(1, 1);
+      // all the things
+      ctx.beginPath();
+      let min_space = 99999.9;
+      let phi1 = rand(0, TAU);
+      let P1 = 0;
+      for (let bud of buds) {
+        let dg = Math.pow(bud.r, -0.5);
+        bud.d += dt * dg * 3;    // grow outward at 10mm/s
+        bud.r += dt * dg * 0.25;     // grow size at 4mm/s
+        let space = Math.max(0, bud.d - bud.r);        
+        let d_phi = PI - dmod(bud.phi, phi1, TAU);
+        P1 += (d_phi * d_phi) / Math.pow(100 + space, 2);
+        min_space = Math.min(min_space, space);
+        circle(ctx, (bud.d + bud.r) * Math.cos(bud.phi), (bud.d + bud.r) * Math.sin(bud.phi), bud.r);
+      }
+      P1 /= buds.length;
+      if (P1 < best_P) {
+        best_P = P1;
+        best_phi = phi1;
+      }
+
+      if (min_space > new_r) {
+        buds.push({phi: best_phi, d: 0, r: new_r});
+        best_phi = rand(0, TAU);
+        best_P = 99999.9;
+      }
+      ctx.fill();
+      ctx.restore();
+      window.requestAnimationFrame(draw);
+    }
+    draw();
+    window.addEventListener("keydown", ev => { 
+      if (ev.key == " ") { 
+        running = !running;
+        if (running) draw();
+      }
+    });
+  </script>
+</body>
+
+</html>

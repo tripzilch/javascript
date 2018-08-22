@@ -15,7 +15,10 @@
 
 <body>
   <canvas id="c"></canvas>
+  <script src="math.js"></script>
   <script>
+    'use strict';
+    // init canvas
     let canvas = document.getElementById("c");
     let W = canvas.width = 1440;
     let H = canvas.height = 720;
@@ -31,17 +34,6 @@
 
     let ctx = canvas.getContext("2d");
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-
-    let PI = Math.PI, TAU = PI * 2;
-    let sin = Math.sin, cos = Math.cos, random = Math.random, floor = Math.floor;
-    let max = Math.max, min = Math.min, sqrt = Math.sqrt, hypot = Math.hypot;
-    let mix = (a, b, p) => a * (1 - p) + b * p;
-    let rand = (lo, hi) => lo + ((hi - lo) * random());
-    let irand = (lo, hi) => floor(lo + ((hi - lo) * random()));
-    let nrand = () => random() - random();
-    let sample = (a) => a[irand(0, a.length)];
-    let wrap = (a, n) => (a + n) % n;
-    let pmod = (a, b) => (a % b + b) % b;
 
     ctx.fillStyle = '#ddc';
     ctx.fillRect(0, 0, W, H);
