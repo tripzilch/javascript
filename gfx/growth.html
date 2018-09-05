@@ -1,7 +1,7 @@
 <!doctype html><html>
 <head>
   <meta charset="utf-8">
-  <title>LEDGETRACE</title>
+  <title>LETTUCE TRACE</title>
   <style>*{margin:0;padding:0;}
     body {
       background: #000;
@@ -12,19 +12,33 @@
       width: 1200px;
       height: 600px;
     }
+    textarea {
+      display: block;
+      margin: 4px auto;
+      width: 1200px;
+      height: 50px;      
+      background: #000;
+      color: #666;
+      border: 1px solid #333;
+    }
+
   </style>
 </head>
 
 <body>
   <canvas id="c"></canvas>
+  <textarea id="txt"></textarea>
+  <script src="math.js"></script>
   <script>
     'use strict';
     let canvas = document.getElementById("c");
-    const oversample = 1;
+    let txt = document.getElementById("txt");
+    const oversample = 16;
     const W = 1200 * oversample,
           H = 600 * oversample;
     canvas.width = W;
     canvas.height = H;
+
     let canvas_rect = canvas.getBoundingClientRect();
 
     let [mouse_x, mouse_y] = [0, 0];
@@ -36,55 +50,64 @@
     window.addEventListener("keydown", ev => { keys[ev.keyCode] = true; });
     window.addEventListener("keyup", ev => { keys[ev.keyCode] = false; });
 
-    const PI = Math.PI, TAU = PI * 2;
-    // let sin = Math.sin, cos = Math.cos, tan = Math.tan, Math.random = Math.random, Math.floor = Math.floor;
-    // let Math.max = Math.max, Math.min = Math.min, sqrt = Math.sqrt, hypot = Math.hypot, abs = Math.abs;
-    let mix = (a, b, p) => a * (1 - p) + b * p;
-    let clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
-    let rand = (lo, hi) => lo + (hi - lo) * Math.random();
-    let irand = (lo, hi) => Math.floor(lo + (hi - lo) * Math.random());
-    let nrand = (lo=0, hi=1) => lo + (hi - lo) * .5 * (1 + Math.random() - Math.random());
-    let sample = (a) => a[irand(0, a.length)];
-    let wrap = (a, n) => (a + n) % n;
-    let pmod = (a, b) => (a % b + b) % b;
-    let smoothstep = (x, e0, e1) => {
-      x = clamp((x - e0) / (e1 - e0), 0, 1);
-      return x * x * (3 - 2 * x);
+    class Sim {
+      constructor(dt=.005) {
+        this.t = 0;
+        this.dt = dt;
+        this.nodes = [];
+        this.edges = [];
+      }
+
+      step(step_dt) {
+        // iterate for steps of min_dt
+        let t_end = this.t + step_dt;
+        while (this.t < t_end) {
+          // leapfrog integration
+          // x += v * dt
+          for (let n of nodes) n.update_x(this.dt);
+          // a = F(x)
+          derive_a();
+          // v += a * dt
+          for (let n of nodes) n.update_v(this.dt);
+          this.t += this.dt
+        }
+      }
+
+      derive_a() {
+      }
+
+      connect(n0, n1) {
+        edges.push([nodes[n0], nodes[n1]]);
+      }
+
     }
-    class Vec2 {
-      constructor(x, y) {
+
+    let current_id = 0;
+    class Node {
+      constructor(x, y, vx=0, vy=0) {
+        this.id = current_id++;
         this.x = x;
         this.y = y;
+        this.vx = vx;
+        this.vy = vy;        
       }
-      // vector update methods
-      add(v) { this.x += v.x; this.y += v.y; return this; }
-      sub(v) { this.x -= v.x; this.y -= v.y; return this; }
-      mul(v) { this.x *= v.x; this.y *= v.y; return this; }
-      madd(v, a) { this.x += v.x * a; this.y += v.y * a; return this; }
-      mix(v, p) { this.x += (v.x - this.x) * p; this.y += (v.y - this.y) * p; return this; }
-      rot90() { [this.x, this.y] = [-this.y, this.x]; return this; }
-      rot180() { this.x *= -1; this.y *= -1; return this; }
-      rot270() { [this.x, this.y] = [this.y, -this.x]; return this; }
-      normalize() { let h = 1 / Math.hypot(this.x, this.y); this.x *= h; this.y *= h; return this; }
-      op1(f) { this.x = f(this.x); this.y = f(this.y); return this; }
-      op2(v, f) { this.x = f(this.x, v.x); this.y = f(this.y, v.y); return this; }
-      op3(v, w, f) { this.x = f(this.x, v.x, w.x); this.y = f(this.y, v.y, w.y); return this; }
 
-      // scalar methods
-      dist(v) { return Math.hypot(this.x - v.x, this.y - v.y); }
-      hypot() { return Math.hypot(this.x, this.y); }
+      update_v(dt) {
+        this.vx += this.ax * dt;
+        this.vy += this.ay * dt;        
+      }
+      update_x(dt) {
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+      }
 
-      // swizzling
-      get xy() { return new Vec2(this.x, this.y); } // also copy
-      get yx() { return new Vec2(this.y, this.x); }
-      get xx() { return new Vec2(this.x, this.x); }
-      get yy() { return new Vec2(this.y, this.y); }
+      // getset nonsense
+      get xy() { return [this.x, this.y]; }
       set xy(v) { [this.x, this.y] = [v.x, v.y]; }
-      set yx(v) { [this.x, this.y] = [v.y, v.x]; }
 
       // static initializers
       static random(a=1, rng=Math.random) {
-        return new Vec2(a * rng(), a * rng());
+        //
       }
 
     }
@@ -164,6 +187,9 @@
       s2.reverse();
       let ss = s1.concat(s2);
 
+      // experimental: dither
+      for (let s of ss) { s.x += (rand()-rand())/oversample; s.y += (rand()-rand())/oversample; }
+
       // draw
       ctx.beginPath();
       linear_curve(ctx, ss);
@@ -176,41 +202,49 @@
     var running = true;
     function draw() {
       if (!running) return;
+      ctx.save();
+      ctx.translate(W/2, H/2);      
+      ctx.scale(oversample, oversample);
       if (keys[74]) frame_count-=10;
       if (keys[75]) frame_count+=9;
-      frame_count++;
-      clear(ctx, "#233");
 
-      // Of course ToDo lists, interesting tasks, deadline pressure and gamification work.
-      let f = frame_count * .005;
-      let pp = [], ww = [];
-      let t;
-      for (t = 0; t < 3; t += .005) {
-        let x = Math.sin(0 + t * 1 + f * .07) * Math.sin(2 + t * 2.5 + f * .10) * 250;
-        let y = Math.sin(1 + t * 2 - f * .13) * Math.sin(3 + t * 1.5 - f * .06) * 250;
-        pp.push(new Vec2(x + W/2, y + H/2));
-        let s = Math.sin(1 + t * 2.3 - f * .05) * 2;
-        let w = (0.25 + 3 * Math.pow(Math.sin(3 + t * 7 + f * .73 + s), 8)) * 12;
-        w *= smoothstep(Math.min(t, 3 - t), 0, 0.75);
-        ww.push(w);
+      for (let k = 0; k < 8; k++) {
+        frame_count++;
+        txt.value = '' + frame_count;
+        //clear(ctx, "rgba(24,24,36,0.06)");
+
+        let f = frame_count * .002;
+        if (f > 24.0) running = false;
+        let pp = [], ww = [];
+        let t;
+        for (t = -rand(0,.0005); t < 3; t += .0003) {
+          let x = Math.sin(0.0 + t * 0.9 + f * .130) * (1.25 + Math.sin(4.5 + t * 2.4 + f * .062)) * 220;
+          let y = Math.sin(1.5 + t * 1.5 - f * .198) * (1.25 + Math.sin(3.5 + t * 3.9 - f * .088)) * 110;
+          pp.push(new Vec2(x, y));
+          let s = Math.sin(1.5 + t * 2.3 - f * .05) * 2;
+          // let m = Math.pow(Math.sin(2.1 + t * 4.7 - f * .144), 6);
+          let w = (3 * Math.pow(Math.sin(3 + t * 7 + f * .72 + s), 8)) * 10;
+          w *= smoothstep(Math.min(t, 3 - t), 0.001, 0.95);
+          ww.push(w);
+        }
+
+        let col = Math.cos(f * TAU+PI) > 0 ? "#e47000" : "#000011";
+        ctx.fillStyle = col;
+        ctx.globalAlpha = rand();
+        thick_brush(ctx, pp, ww);
+
+        //ctx.strokeStyle = col;
+        //ctx.lineWidth = 0.125;
+        //ctx.stroke();
       }
-
-      ctx.fillStyle = "#c62";
-      thick_brush(ctx, pp, ww);
-
-      ctx.strokeStyle = "rgba(128,48,16,0.2)";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      linear_curve(ctx, pp);
-      //ctx.stroke();
-
+      ctx.restore();
       window.requestAnimationFrame(draw);
     }
 
     let ctx = canvas.getContext("2d");
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
 
-    clear(ctx, '#000');
+    clear(ctx, '#232425');
     draw();
     window.addEventListener("keydown", ev => { 
       if (ev.key == " ") { 

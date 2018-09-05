@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <style>*{margin:0;padding:0;}
     body {
-      background: #513;
+      background: #000;
     }
     canvas{
       display: block;
@@ -20,8 +20,8 @@
     'use strict';
     // init canvas
     let canvas = document.getElementById("c");
-    let W = canvas.width = 1440;
-    let H = canvas.height = 720;
+    let W = canvas.width = 1600;
+    let H = canvas.height = 900;
     let canvas_rect = canvas.getBoundingClientRect();
     let [mouse_x, mouse_y] = [0, 0];
     let keys = [];
@@ -38,23 +38,30 @@
     function clear(ctx, c='#fff') { ctx.fillStyle = c; ctx.fillRect(0, 0, W, H); }
     function circle(ctx, x, y, r) { ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, TAU); }
 
-    clear(ctx, '#ddc');
+    clear(ctx, '#000');
 
-    let frame_count = 0;
-    let t = Date.now() / 1000.0; // seconds
-    let new_r = 1.0; // millimetres
-    let best_phi = rand(0, TAU);
-    let best_P = 99999.9;
-    let buds = [{phi: 0, d: 0, r: new_r}];
-    let running = true;
+    const Ngf = 1024;
+    const new_r = 1.0; // millimetres
+    const new_d = 1.0; // millimetres
+    const budding_threshold = 1.0; // gf amount to trigger new bud
+    const out_gro_speed = 50.0; // outward growing speed in mm/s
+    const size_gro_speed = 2.5; // scaling factor how big they get in mm/gf kinda
+    const gf_production = 2.5; // production in gf/s
+    const gf_consumption = 128.0; // consumption in gf/s
+    const diffuse_rate = 16.0; // diffusion in gf / radian / s
+    let buds = []; // [{phi: 0, d: 0, r: new_r, t0: t}];    
+    let gro_factor = new Array(Ngf).fill(0);
+    for (let i = 0; i < Ngf; i++) gro_factor[i] += rand(0, budding_threshold);
+
+    let running = true, frame_count = 0, t = Date.now() / 1000.0; // t in seconds
     function draw() {
       if (!running) return;
       let t_prev = t;
       t = Date.now() / 1000.0;
       let dt = t - t_prev;
       frame_count++;
-      clear(ctx, "#233");
-      ctx.fillStyle = "#BCC";
+
+      clear(ctx, "#021");
       ctx.save();      
       ctx.translate(W/2, H/2);
       ctx.beginPath();
@@ -64,33 +71,66 @@
       ctx.lineWidth = 0.25;
       ctx.stroke();
 
-      ctx.scale(1, 1);
+      // adjust scale here in case you want to
+      ctx.scale(.5, .5);
+      // draw grow factor
+      ctx.beginPath();
+      for (let i = 0; i < Ngf; i++) {
+        let r = 100 + 50 * gro_factor[i];
+        let p = TAU * i / Ngf;
+        ctx.lineTo(r * Math.cos(p), r * Math.sin(p));
+      }
+      //ctx.closePath();      
+      ctx.fillStyle = "rgba(0,72,32,0.4)";
+      ctx.strokeStyle = "rgba(0,72,32,0.8)";
+      ctx.lineWidth = 0.5;
+      ctx.fill();
+      circle(ctx, 0, 0, 100 + 50 * budding_threshold);
+      ctx.stroke();
+
       // all the things
       ctx.beginPath();
-      let min_space = 99999.9;
-      let phi1 = rand(0, TAU);
-      let P1 = 0;
+      shuffle(buds); // iterate in random order
       for (let bud of buds) {
-        let dg = Math.pow(bud.r, -0.5);
-        bud.d += dt * dg * 3;    // grow outward at 10mm/s
-        bud.r += dt * dg * 0.25;     // grow size at 4mm/s
-        let space = Math.max(0, bud.d - bud.r);        
-        let d_phi = PI - dmod(bud.phi, phi1, TAU);
-        P1 += (d_phi * d_phi) / Math.pow(100 + space, 2);
-        min_space = Math.min(min_space, space);
-        circle(ctx, (bud.d + bud.r) * Math.cos(bud.phi), (bud.d + bud.r) * Math.sin(bud.phi), bud.r);
+        let p = bud.phi + rand(-1,1) * TAU / 256; // spread dither
+        let i = iwrap(p * Ngf / TAU, Ngf);
+        let g_available = gro_factor[i];
+        let age = t - bud.t0;
+        bud.age = age;
+        let g_rate = Math.exp(-age / 8);
+        //console.log(age, g_rate, g_available, size_gro_speed, dt);
+        bud.r += g_rate * g_available * size_gro_speed * dt; // grow size mm/s
+        bud.d = Math.sqrt(new_d * new_d + out_gro_speed * out_gro_speed * age); // grow outward mm/s
+        gro_factor[i] *= 1 - gf_consumption * g_rate * dt; // deplete gf_consumption gf/s
+        circle(ctx, bud.d * Math.cos(bud.phi), bud.d * Math.sin(bud.phi), bud.r);
+      }      
+      let max_d = Math.hypot(W, H);
+      buds = buds.filter(v => v.d < max_d);
+
+      // produce grow factor * dt
+      for (let i = 0; i < Ngf; i++) gro_factor[i] += rand() * gf_production * dt;
+      // grow new bud: where grow factor > budding_threshold
+      let offset = irand(0, Ngf);
+      for (let i = 0; i < Ngf; i++) {
+        let oi = iwrap(i + offset, Ngf);
+        if (gro_factor[oi] > budding_threshold && chance(0.01)) {
+          gro_factor[oi] -= budding_threshold; // hm
+          buds.push({
+            phi: wrap(i + offset + rand(-1,1), Ngf) * (TAU / Ngf), 
+            d: new_d, 
+            r: new_r, 
+            t0: t
+          });
+          //console.log(buds[buds.length-1]);
+          break;
+        }
       }
-      P1 /= buds.length;
-      if (P1 < best_P) {
-        best_P = P1;
-        best_phi = phi1;
+      // diffuse grow factor * dt
+      for (let k = 0; k < 8; k++) {
+        gro_factor = gro_factor.map((v,i,a) => (v + v + awrap(a, i - 1) + awrap(a, i + 1)) / 4);
       }
 
-      if (min_space > new_r) {
-        buds.push({phi: best_phi, d: 0, r: new_r});
-        best_phi = rand(0, TAU);
-        best_P = 99999.9;
-      }
+      ctx.fillStyle = "#BCC";
       ctx.fill();
       ctx.restore();
       window.requestAnimationFrame(draw);
@@ -99,6 +139,7 @@
     window.addEventListener("keydown", ev => { 
       if (ev.key == " ") { 
         running = !running;
+        console.log(running ? "START" : "PAUSED")
         if (running) draw();
       }
     });

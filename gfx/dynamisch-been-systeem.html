@@ -135,7 +135,6 @@
       }
     }
 
-    var t0 = Date.now();
     class Experiment {
       constructor(N=9) {
         // init nodes to random positions
@@ -154,6 +153,7 @@
 
     }
 
+    var t0 = Date.now();
     let x = new Experiment();
     function draw() {
       var now = Date.now() - t0;

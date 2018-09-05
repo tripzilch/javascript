@@ -1,21 +1,37 @@
 'use strict';
 
 const PI = Math.PI, TAU = PI * 2;
-// let sin = Math.sin, cos = Math.cos, tan = Math.tan, Math.random = Math.random, Math.floor = Math.floor;
-// let Math.max = Math.max, Math.min = Math.min, sqrt = Math.sqrt, hypot = Math.hypot, abs = Math.abs;
+// let sin = Math.sin, cos = Math.cos, tan = Math.tan, floor = Math.floor, random = Math.random;
+// let max = Math.max, min = Math.min, abs = Math.abs, hypot = Math.hypot, sqrt = Math.sqrt;
 let mix = (a, b, p) => a * (1 - p) + b * p;
 let clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
+let smoothstep = (x, e0, e1) => {
+  x = clamp((x - e0) / (e1 - e0), 0, 1);
+  return x * x * (3 - 2 * x);
+}
+
+// circular array / modular arithmetic
+let wrap = (a, m) => (a % m + m) % m;
+let iwrap = (a, m) => Math.floor((a % m + m) % m);
+let awrap = (a, i) => a[iwrap(i, a.length)];
+let dmod = (a, b, m) => Math.min(wrap(a - b, m), wrap(b - a, m));
+
+// random functions
 let rand = (lo=0, hi=1) => lo + (hi - lo) * Math.random();
 let irand = (lo, hi) => Math.floor(lo + (hi - lo) * Math.random());
 let nrand = (lo=-1, hi=1) => lo + (hi - lo) * .5 * (1 + Math.random() - Math.random());
 let sample = (a) => a[irand(0, a.length)];
 let chance = (p) => rand() < p;
-let wrap = (a, m) => (a % m + m) % m;
-let dmod = (a, b, m) => Math.min(wrap(a - b, m), wrap(b - a, m));
-let smoothstep = (x, e0, e1) => {
-  x = clamp((x - e0) / (e1 - e0), 0, 1);
-  return x * x * (3 - 2 * x);
+function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) {
+        let j = Math.floor(Math.random() * (i + 1));
+        let x = a[i];
+        a[i] = a[j];
+        a[j] = x;
+    }
+    return a;
 }
+
 
 class Vec2 {
   constructor(x, y) {
@@ -41,7 +57,7 @@ class Vec2 {
   hypot() { return Math.hypot(this.x, this.y); }
 
   // swizzling
-  get xy() { return new Vec2(this.x, this.y); } // also copy
+  get xy() { return new Vec2(this.x, this.y); } // Vec2.xy is also copy constructor
   get yx() { return new Vec2(this.y, this.x); }
   get xx() { return new Vec2(this.x, this.x); }
   get yy() { return new Vec2(this.y, this.y); }
