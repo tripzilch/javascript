@@ -33,7 +33,7 @@
     'use strict';
     let canvas = document.getElementById("c");
     let txt = document.getElementById("txt");
-    const oversample = 16;
+    const oversample = 1;
     const W = 1200 * oversample,
           H = 600 * oversample;
     canvas.width = W;
@@ -50,88 +50,21 @@
     window.addEventListener("keydown", ev => { keys[ev.keyCode] = true; });
     window.addEventListener("keyup", ev => { keys[ev.keyCode] = false; });
 
-    class Sim {
-      constructor(dt=.005) {
-        this.t = 0;
-        this.dt = dt;
-        this.nodes = [];
-        this.edges = [];
-      }
-
-      step(step_dt) {
-        // iterate for steps of min_dt
-        let t_end = this.t + step_dt;
-        while (this.t < t_end) {
-          // leapfrog integration
-          // x += v * dt
-          for (let n of nodes) n.update_x(this.dt);
-          // a = F(x)
-          derive_a();
-          // v += a * dt
-          for (let n of nodes) n.update_v(this.dt);
-          this.t += this.dt
-        }
-      }
-
-      derive_a() {
-      }
-
-      connect(n0, n1) {
-        edges.push([nodes[n0], nodes[n1]]);
-      }
-
-    }
-
-    let current_id = 0;
-    class Node {
-      constructor(x, y, vx=0, vy=0) {
-        this.id = current_id++;
-        this.x = x;
-        this.y = y;
-        this.vx = vx;
-        this.vy = vy;        
-      }
-
-      update_v(dt) {
-        this.vx += this.ax * dt;
-        this.vy += this.ay * dt;        
-      }
-      update_x(dt) {
-        this.x += this.vx * dt;
-        this.y += this.vy * dt;
-      }
-
-      // getset nonsense
-      get xy() { return [this.x, this.y]; }
-      set xy(v) { [this.x, this.y] = [v.x, v.y]; }
-
-      // static initializers
-      static random(a=1, rng=Math.random) {
-        //
-      }
-
-    }
-
     function clear(ctx, c='#fff') { ctx.fillStyle = c; ctx.fillRect(0, 0, W, H); }
-    function circle(x, y, r) { ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, TAU); }
+    //function clear(ctx, c='#fff') { ctx.fillStyle = c; ctx.fillRect(-W/2, -H/2, W/2, H/2); }
+    function circle(ctx, x, y, r) { ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, TAU); }
 
     function linear_curve(ctx, vv) {
       ctx.moveTo(vv[0].x, vv[0].y)
-      for (var i = 1; i < vv.length; i++) { ctx.lineTo(vv[i].x, vv[i].y); }
+      for (let i = 1; i < vv.length; i++) { ctx.lineTo(vv[i].x, vv[i].y); }
       return vv;
     }
 
     function quadratic_curve(ctx, vv) { /*
       https://stackoverflow.com/a/7058606 -- The problem with joining subsequent sample points together with disjoint "curveTo" type functions, is that where the curves meet is not smooth. This is because the two curves share an end point but are influenced by disjoint control points. One solution is to "curve to" the midpoints between the next 2 subsequent sample points. Joining the curves using these new interpolated points gives a smooth transition at the end points. What is an end point for one iteration becomes a control point for the next iteration. Note: this solution does not actually draw through each of the points. There is a solution to go through all the sample points, but it is much more complicated (see http://www.cartogrammar.com/blog/actionscript-curves-update/)
-
-        for (i = 1; i < points.length - 2; i ++) {
-          var xc = (points[i].x + points[i + 1].x) / 2;
-          var yc = (points[i].y + points[i + 1].y) / 2;
-          ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
-        }
-        ctx.quadraticCurveTo(points[i].x, points[i].y, points[i+1].x,points[i+1].y);    */
+      */
       ctx.moveTo(vv[0].x, vv[0].y)
-      for (var i = 1; i < vv.length - 2; i++) {
+      for (let i = 1; i < vv.length - 2; i++) {
         let vi = vv[i];
         let vc = vi.xy.mix(vv[i + 1], .5);
         ctx.quadraticCurveTo(vi.x, vi.y, vc.x, vc.y);
@@ -142,7 +75,7 @@
 
     function smooth_path(ctx, pp) {
       let sp = [];
-      for (var i = 1; i < pp.length; i++) {
+      for (let i = 1; i < pp.length; i++) {
         sp.push(pp[i].xy.mix(pp[i - 1], .5));
       }
       return sp;
@@ -157,16 +90,7 @@
     function thick_brush(ctx, pp, ww) {
       // draw a stroke/brush along points pp with thickness ww
 
-      // calculate normals
-      //let np = [];
-      //let i = 1;
-      //np.push(pp[i].xy.sub(pp[i - 1]).normalize().rot90());
-      //for (; i < pp.length - 1; i++) {
-      //  np.push(pp[i + 1].xy.sub(pp[i - 1]).normalize().rot90());
-      //}
-      //np.push(pp[i].xy.sub(pp[i - 1]).normalize().rot90());
-
-
+      //// construct both sides of stroke
       let s1 = [], s2 = [];
       let prev, [cur, next] = [pp[0], pp[1]];
       for (let i = 2; i < pp.length; i++) {
@@ -177,18 +101,12 @@
         s2.push(cur.xy.madd(n, -w));
       }
 
-      //// construct both sides of stroke
-      //for (i = 0; i < pp.length; i++) {
-      //  let p = pp[i], n = np[i], w = ww[i];
-      //  s1.push(p.xy.madd(n, w));
-      //  s2.push(p.xy.madd(n, -w));
-      //}
       // combine
       s2.reverse();
       let ss = s1.concat(s2);
 
       // experimental: dither
-      for (let s of ss) { s.x += (rand()-rand())/oversample; s.y += (rand()-rand())/oversample; }
+      // for (let s of ss) { s.x += (rand()-rand())/oversample; s.y += (rand()-rand())/oversample; }
 
       // draw
       ctx.beginPath();
@@ -198,45 +116,177 @@
       //ctx.stroke(); // for debug: I don't plan to stroke strokes
     }
 
-    var frame_count = 0;
-    var running = true;
+
+    const c_spring = 0.05;  // kg/s^2 or N/m
+    const c_drag = 0.02; // 1/s ??
+    const c_repulsion = 1 / 0.0025; // 1/m, distance of unity repulsion force (beyond which it gets big fast)
+    const c_density = 1000.0; // water, kg/m^3
+    class Sim {
+      constructor(dt=.001) {  // time in seconds
+        this.t = 0;
+        this.dt = dt;
+        this.nodes = [];
+        this.grid = new Grid(.08); // cell size 8 cm
+      }
+      // don't prematurely optimize, write the pretty code that works
+      step(n) {
+        // iterate for steps of min_dt
+        for (let i = 0; i < n; i++) {
+          // leapfrog integration
+          // x += v * dt
+          this.grid.clear();
+          for (let p of this.nodes) {
+            p.x += p.vx * this.dt; 
+            p.y += p.vy * this.dt; 
+            // add to spatial map            
+            this.grid.add(p);
+          }
+          // a = F(x)
+          this.derive_a();
+          // v += a * dt
+          for (let p of this.nodes) {
+            p.vx += p.ax * this.dt; 
+            p.vy += p.ay * this.dt;
+          }
+          this.t += this.dt
+        }
+      }
+
+      derive_a() {
+        for (let p of this.nodes) {
+          let Fx = 0, Fy = 0;
+          // spring forces between neighbours
+          for (let q of p.nn) {
+            let dx = q.x - p.x, dy = q.y - p.y;
+            let d = Math.hypot(dx, dy);
+            // F = -kx
+            let F = -c_spring * (p.r + q.r - d);            
+            Fx += F * dx / d;
+            Fy += F * dy / d;
+          }
+          // nearby repulsion forces
+          const eps = 1E-9;
+          for (let q of this.grid.query(p.x, p.y)) {
+            if (p === q) continue;
+            let dx = q.x - p.x, dy = q.y - p.y;
+            let d = Math.max(eps, Math.hypot(dx, dy));
+            if (d < this.grid.R) {
+              let F = -Math.pow(d * c_repulsion, -2);
+              Fx += F * dx;
+              Fy += F * dy;
+            }
+          }
+          // drag
+          Fx -= c_drag * p.vx;
+          Fy -= c_drag * p.vy;
+          // F = m * a, a = F / m
+          p.ax = Fx / p.m;
+          p.ay = Fy / p.m;
+        }
+      }
+
+      draw(ctx) {
+        for (let p of this.nodes) p.draw(ctx);
+      }
+    }
+
+    class Grid {
+      constructor(R) {
+        this.R = R;
+        this.Rinv = 1 / R;
+        this.grid = {};
+      }
+
+      add(p) {
+        let i = [Math.floor(this.Rinv * p.x), Math.floor(this.Rinv * p.y)];
+        if (!this.grid[i]) this.grid[i] = [];
+        this.grid[i].push(p);
+      }
+
+      query(x, y) { 
+        let rx = this.Rinv * x;
+        let ry = this.Rinv * y;
+        let cell = (x, y) => (this.grid[[Math.floor(x), Math.floor(y)]] || []);
+        return Array.concat(cell(rx - 0.5, ry - 0.5), cell(rx + 0.5, ry - 0.5),
+                            cell(rx - 0.5, ry + 0.5), cell(rx + 0.5, ry + 0.5));
+      }
+
+      clear() {
+        this.grid = {};
+      }
+    }
+
+    let current_id = 0;
+    class Node {
+      constructor(x, y, r=.01, vx=0, vy=0) { // default 1cm size
+        this.id = current_id++;
+        this.x = x;  // m
+        this.y = y;
+        this.vx = vx;  // m/s
+        this.vy = vy;
+        this.ax = this.ay = 0; // m/s^2
+        this.r = r; // m
+        this.nn = []; // neighbours
+      }
+
+      connect(other) {
+        this.nn.push(other);
+        other.nn.push(this);
+      }
+
+      draw(ctx) {        
+        circle(ctx, this.x, this.y, this.r);
+        circle(ctx, this.x, this.y, this.r * 0.75);
+        circle(ctx, this.x, this.y, this.r * 0.625);
+        for (let other of this.nn) {
+          if (this.id > other.id) { // only draw edge once
+            ctx.moveTo(this.x, this.y);
+            ctx.lineTo(other.x, other.y);
+          }
+        }
+      }
+
+      // getset
+      get m() { return c_density * 0.01 * this.r * this.r * PI; } // kg (1cm high disc)
+
+      // nonsense
+      get xy() { return [this.x, this.y]; }
+      set xy(v) { [this.x, this.y] = [v.x, v.y]; }
+
+      // static initializers
+      static random(a=1) { // probably a bad idea
+        return new Node(a * (RNG() - .5), a * (RNG() - .5));
+      }
+    }    
+
+    let t0 = Date.now();
+    let sim = new Sim();
+    for (let i = 0; i < 40; i++) {
+      sim.nodes.push(new Node((i - 20) * .010, nrand() * .05, .01));
+      if (i > 0) sim.nodes[i].connect(sim.nodes[i - 1]);
+    }
+    sim.nodes[20].r = .02;
+    let frame_count = 0;
+    let running = true;
+    let now = t0;
     function draw() {
       if (!running) return;
+      frame_count ++;
+      let prev_now = now;
+      now = Date.now() - t0;
+      let dt = now - prev_now;
+      sim.step(50); 
+      clear(ctx, '#eee');
       ctx.save();
       ctx.translate(W/2, H/2);      
       ctx.scale(oversample, oversample);
-      if (keys[74]) frame_count-=10;
-      if (keys[75]) frame_count+=9;
-
-      for (let k = 0; k < 8; k++) {
-        frame_count++;
-        txt.value = '' + frame_count;
-        //clear(ctx, "rgba(24,24,36,0.06)");
-
-        let f = frame_count * .002;
-        if (f > 24.0) running = false;
-        let pp = [], ww = [];
-        let t;
-        for (t = -rand(0,.0005); t < 3; t += .0003) {
-          let x = Math.sin(0.0 + t * 0.9 + f * .130) * (1.25 + Math.sin(4.5 + t * 2.4 + f * .062)) * 220;
-          let y = Math.sin(1.5 + t * 1.5 - f * .198) * (1.25 + Math.sin(3.5 + t * 3.9 - f * .088)) * 110;
-          pp.push(new Vec2(x, y));
-          let s = Math.sin(1.5 + t * 2.3 - f * .05) * 2;
-          // let m = Math.pow(Math.sin(2.1 + t * 4.7 - f * .144), 6);
-          let w = (3 * Math.pow(Math.sin(3 + t * 7 + f * .72 + s), 8)) * 10;
-          w *= smoothstep(Math.min(t, 3 - t), 0.001, 0.95);
-          ww.push(w);
-        }
-
-        let col = Math.cos(f * TAU+PI) > 0 ? "#e47000" : "#000011";
-        ctx.fillStyle = col;
-        ctx.globalAlpha = rand();
-        thick_brush(ctx, pp, ww);
-
-        //ctx.strokeStyle = col;
-        //ctx.lineWidth = 0.125;
-        //ctx.stroke();
-      }
+      let S = 1000; // 1mm = 1px
+      ctx.scale(S, S); // 1mm = 1px
+      ctx.strokeStyle = '#002';
+      ctx.lineWidth = .5 / S; // 0.5 mm
+      ctx.beginPath();
+      sim.draw(ctx);
+      ctx.stroke();
       ctx.restore();
       window.requestAnimationFrame(draw);
     }
@@ -247,102 +297,11 @@
     clear(ctx, '#232425');
     draw();
     window.addEventListener("keydown", ev => { 
-      if (ev.key == " ") { 
+      if (ev.key === " ") { 
         running = !running;
         if (running) draw();
       }
     });
-
-
-
-    /***************** LEDGE STUFF ******************
-
-    let DISTANCE = 70.0,
-        LEN = 2000,
-        STEP = 1.0,
-        BEST_OF = 12;
-
-    let ledge = new Array(H).fill(-DISTANCE * 10);
-    ledge = ledge.map(e => rand(0.9, 1.1) * e);
-    console.log(ledge);
-    function fledge(y) {
-      let yi = Math.floor(y);
-      let yf = y - yi;
-      return ledge[pmod(yi, H)] * (1 - yf) + ledge[pmod(yi + 1, H)] * yf;
-    }
-    function dledge(x, y) {
-      let yi = Math.floor(y);
-      let yf = y - yi;
-      let dx1 = x - ledge[pmod(yi - 1, H)], dy1 = y - yi - 1, d1 = hypot(dx1, dy1);
-      let dx2 = x - ledge[pmod(yi    , H)], dy2 = y - yi    , d2 = hypot(dx2, dy2);
-      let dx3 = x - ledge[pmod(yi + 1, H)], dy3 = y - yi + 1, d3 = hypot(dx3, dy3);
-      let [s1, s2, s3] = [[d1, dx1, dy1], [d2, dx2, dy2], [d3, dx3, dy3]];
-      if (s1 < s2 && s1 < s3) return s1;
-      if (s2 < s3) return s2;
-      return s3;
-    }
-    function get_path(y, a=PI / 2) {
-      let x = fledge(y) + DISTANCE;
-      let pp = [];
-      for (var i = 0; i < LEN; i++) {
-        let [ermin, amin, xmin, ymin] = [99999, 0, 0, 0];
-        let na = a;
-        for (var k = 0; k < BEST_OF; k++) {
-          // step Math.random angle
-          na = a + 0.15 * nrand() * PI / 2;
-          //na = Math.max(Math.min(na, PI), 0)
-          let nx = x + STEP / tan(na);
-          let ny = y + STEP;
-          let nxa = x + 5 * STEP / tan(na);
-          let nya = y + 5 * STEP;
-          let [d, dx, dy] = dledge(nxa, nya); // lookahead distance to ledge
-          let er = (d - DISTANCE) ** 2;
-          if (er < ermin) [ermin, amin, xmin, ymin] = [er, na, nx, ny];
-        }
-        [x, y, a] = [xmin, ymin, amin];
-        pp.push([x, y]);
-      }
-      return pp;
-    }
-
-    var frame_count = 0;
-    function draw() {
-      frame_count++;
-
-      let pp = get_path(rand(0, H));
-      // adjust ledge
-      pp.forEach(([x, y]) => { // todo properly loop this for if STEP > 1 and just to be sure
-        let yi = pmod(Math.floor(y), H);
-        ledge[yi] = Math.max(ledge[yi], x);
-      });
-      // smoothen ledge
-      var min_ledge = W * 4;
-      for (var k = 0; k < 12; k++) {
-        let ledge1 = new Array(H);
-        for (var i = 0; i < H; i++) {
-          let [a, b, c] = [ledge[pmod(i - 1, H)], ledge[i], ledge[pmod(i + 1, H)]];
-          let d = Math.max(a, b, c);
-          ledge1[i] = (a + b * 2 + c) / 4;
-          min_ledge = Math.min(ledge1[i], min_ledge);
-        }
-        ledge = ledge1;
-      }
-
-      //let arcut = (ar, p) => ar.slice(Math.floor(ar.length * p), Math.floor(ar.length * (1-p)));
-
-      let g = smoothstep(min_ledge, W * 0.1, W * 0.9);
-      let c = Math.random() < g ? 1 : 0;
-      aa = '1.0'; // irand(1, 30) / 100;
-      ctx.strokeStyle = [
-        'rgba( 56, 16,144, ' + aa + ')',
-        'rgba(255,160, 24, ' + aa + ')'][c];
-      ctx.lineWidth = 4;
-      draw_path(ctx, pp);
-
-      if (min_ledge <= W + DISTANCE) window.requestAnimationFrame(draw);
-    }
-
-      ******** END LEDGE STUFF **********************/
 
   </script>
 </body>
