@@ -1,0 +1,195 @@
+<!doctype html><html>
+<head>
+  <meta charset="utf-8">
+  <title>LEDGETRACE</title>
+  <style>*{margin:0;padding:0;}
+    body {
+      background: #030;
+    }
+    canvas{
+      display: block;
+      margin: 4px auto;
+      width: 1200px;
+      height: 600px;
+    }
+    p { color: #888; }
+  </style>
+</head>
+
+<body>
+  <canvas id="c"></canvas>
+  <p id="info">...</p>
+  <script src="math.js"></script>
+  <script>
+    'use strict';
+    let canvas = document.getElementById("c");
+    let info = document.getElementById("info");
+    const oversample = 6;
+    const W = 1200 * oversample,
+          H = 800 * oversample;
+    canvas.width = W;
+    canvas.height = H;
+    let canvas_rect = canvas.getBoundingClientRect();
+
+    let [mouse_x, mouse_y] = [0, 0];
+    canvas.addEventListener('mousemove', ev => {
+      [mouse_x, mouse_y] = [ev.clientX - canvas_rect.left, ev.clientY - canvas_rect.top];
+    }, false);
+
+    let keys = [];
+    window.addEventListener("keydown", ev => { keys[ev.keyCode] = true; });
+    window.addEventListener("keyup", ev => { keys[ev.keyCode] = false; });
+
+    function loadImageData(url) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onerror = (e) => { reject(e); };
+        img.onload = () => {
+          let w = img.width;
+          let h = img.height;
+          let img_canvas = document.createElement('canvas');        
+          img_canvas.width = w; 
+          img_canvas.height = h;
+          let img_ctx = img_canvas.getContext('2d');
+          img_ctx.drawImage(img, 0, 0);
+          resolve(img_ctx.getImageData(0, 0, w, h));
+        }
+        img.crossOrigin = 'anonymous';
+        img.src = url;
+      });
+    }
+
+    function clear(ctx, c='#fff') { ctx.fillStyle = c; ctx.fillRect(0, 0, W, H); }
+    function circle(x, y, r) { ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, TAU); }
+
+    function linear_curve(ctx, vv) {
+      ctx.moveTo(...vv[0]); 
+      for (let i = 1; i < vv.length; i++) { ctx.lineTo(...vv[i]); }
+      return vv;
+    }
+
+    function quadratic_curve(ctx, vv) { /*
+      https://stackoverflow.com/a/7058606 -- The problem with joining subsequent sample points together with disjoint "curveTo" type functions, is that where the curves meet is not smooth. This is because the two curves share an end point but are influenced by disjoint control points. One solution is to "curve to" the midpoints between the next 2 subsequent sample points. Joining the curves using these new interpolated points gives a smooth transition at the end points. What is an end point for one iteration becomes a control point for the next iteration. Note: this solution does not actually draw through each of the points. There is a solution to go through all the sample points, but it is much more complicated (see http://www.cartogrammar.com/blog/actionscript-curves-update/)
+
+        for (i = 1; i < points.length - 2; i ++) {
+          let xc = (points[i].x + points[i + 1].x) / 2;
+          let yc = (points[i].y + points[i + 1].y) / 2;
+          ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+        }
+        ctx.quadraticCurveTo(points[i].x, points[i].y, points[i+1].x,points[i+1].y);    */
+      ctx.moveTo(vv[0].x, vv[0].y)
+      for (let i = 1; i < vv.length - 2; i++) {
+        let vi = vv[i];
+        let vc = vi.xy.mix(vv[i + 1], .5);
+        ctx.quadraticCurveTo(vi.x, vi.y, vc.x, vc.y);
+      }
+      ctx.quadraticCurveTo(vv[i].x, vv[i].y, vv[i + 1].x,vv[i + 1].y);
+      return vv;
+    }
+
+    function smooth_path(ctx, pp) {
+      let sp = [];
+      for (let i = 1; i < pp.length; i++) {
+        sp.push(pp[i].xy.mix(pp[i - 1], .5));
+      }
+      return sp;
+    }
+
+    function stroke_path_smooth(ctx, pp) {
+      ctx.beginPath();
+      linear_curve(ctx, smooth_path(pp));
+      ctx.stroke();
+    }
+
+    function thick_brush(ctx, pp, ww, w_scale=1.0) {
+      // draw a stroke/brush along points pp with thickness ww
+      ctx.beginPath();
+      // construct both sides of stroke
+      let s1 = [], s2 = [];
+      let pp_iter = pp.values(), ww_iter = ww.values();
+      let p0, p1, p2, pL, pR;      
+      [p0, p1] = pp_iter;
+      pL = pR = p0;
+      for (let p2 of pp_iter) {
+        ctx.moveTo(pL.x, pL.y);
+        ctx.lineTo(pR.x, pR.y);
+        let [w] = ww_iter;
+        let n = p2.xy.sub(p0).normalize().rot90();
+        pL = p1.xy.madd(n, w * w_scale);
+        pR = p1.xy.madd(n, -w * w_scale);
+        s1.push(pL);
+        s2.push(pR);
+        [p0, p1] = [p1, p2];
+        ctx.lineTo(pR.x, pR.y);
+        ctx.lineTo(pL.x, pL.y);
+        ctx.closePath();
+      }
+    }
+
+    let frame_count = 0;
+    let running = true;
+    let N_FRAMES = 15000;
+    function draw() {
+      if (!running) return;
+      if (keys[74]) frame_count-=10;
+      if (keys[75]) frame_count+=9;
+      info.innerHTML = frame_count;
+      ctx.save();
+      ctx.translate(W/2, H/2);      
+      ctx.scale(oversample, oversample);
+      let pix = (x, y) => {
+        let ix = x / 
+        let ii = (iy * img_data.width + ix) * 4;
+        return img_data.data.subarray(ii, ii + 4);
+      }
+      for (let k = 0; k < 16; k++) {
+        frame_count += 1;
+        let pt = frame_count / N_FRAMES;
+        let fade = Math.min(5 * pt, 1) * Math.min(5 * (1 - pt), 1);
+
+        let f = pt * 10;
+        let pp = [], ww = [];
+        let t;
+        for (t = 0; t < 3; t += .005) {
+          let tw1 = 3 * Math.sin(3 + t * 0.9 + f * .25 + 5 * Math.sin(2 + t * 0.2 + f * .15));
+          let tw2 = 3 * Math.sin(4 + t * 0.86 + f * .29 + 4 * Math.sin(1 + t * 0.24 + f * .16));
+          let x = Math.sin(0 + t * 1.5 + f * .27 + tw1) * Math.sin(2 + t * 1.5 + f * .17) * 500;
+          let y = Math.sin(7 + t * 1.7 + f * .19 + tw2) * Math.sin(8 + t * 1.9 + f * .24) * 300;
+          pp.push(new Vec2(x, y));
+          let s = Math.sin(1 + t * 2.3 - f * .05) * 2;
+          let w = (0.0 + 3 * Math.pow(Math.sin(3 + t * 13 + f * 1.93 + s), 4)) * 9;
+          w *= smoothstep(Math.min(t, 3 - t), 0, 0.75);
+          ww.push(w);
+        }
+
+        let fl = .5 + .5 * Math.sin(f * 27);
+        let fa = (.5 + .5 * Math.sin(f * 43)) * fade * rand();
+        ctx.fillStyle = `hsl(${fl*120+165},0%,${fl*100}%,${fa})`;
+        thick_brush(ctx, pp, ww, fade);
+        ctx.fill();
+      }
+      ctx.restore();
+      if (frame_count < N_FRAMES) window.requestAnimationFrame(draw);
+    }
+
+    let ctx = canvas.getContext("2d");
+    let img_data;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+    clear(ctx, '#000');
+
+    loadImageData("ap.jpg").then(i => {
+      img_data = i; // 2400x3200
+      draw();
+    })
+    window.addEventListener("keydown", ev => { 
+      if (ev.key == " ") { 
+        running = !running;
+        if (running) draw();
+      }
+    });
+
+  </script>
+</body>
+
+</html>
